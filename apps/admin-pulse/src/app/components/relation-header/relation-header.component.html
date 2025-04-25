@@ -1,0 +1,8 @@
+<div>{{ relation().code }}</div>
+<div>
+  Dossier:
+  <span class="name"
+    >{{ relation().displayName }} {{ relation().legalForm }}</span
+  >
+</div>
+<div>Prestaties tot en met: {{ today | date : 'dd/MM/yyyy' }}</div>

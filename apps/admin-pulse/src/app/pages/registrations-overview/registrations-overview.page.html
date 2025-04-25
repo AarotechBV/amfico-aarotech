@@ -1,0 +1,14 @@
+<header>
+  <h1>Registrations</h1>
+  <button class="print" (click)="print()">Print</button>
+</header>
+
+@for (relation of relationsWithRegistrations(); track relation.id) {
+<div class="relation">
+  <ap-relation-header [relation]="relation" />
+  <ap-registrations-table
+    [registrations]="relation.registrations"
+    [hierarchy]="hierarchy()"
+  />
+</div>
+}

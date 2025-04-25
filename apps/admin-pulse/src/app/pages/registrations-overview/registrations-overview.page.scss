@@ -1,0 +1,55 @@
+:host {
+  display: block;
+}
+
+header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.print {
+  border-radius: 12px;
+  background-color: lightgray;
+  transition: 0.3s;
+  cursor: pointer;
+  border: 1px solid gray;
+  font-size: 16px;
+  padding: 8px;
+
+  &:hover {
+    background-color: gray;
+    border: 1px solid lightgray;
+    color: lightgray;
+  }
+}
+
+@media screen {
+  .relation {
+    margin-bottom: 16px;
+  }
+}
+
+@media print {
+  * {
+    color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-family: 'Roboto Think', sans-serif;
+  }
+
+  @page {
+    size: landscape;
+    margin: 16px;
+  }
+
+  header {
+    display: none;
+  }
+
+  .relation {
+    clear: both;
+    page-break-after: always;
+  }
+}

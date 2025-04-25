@@ -1,0 +1,73 @@
+<table cellspacing="0" cellpadding="0">
+  <tr class="header">
+    <td style="font-weight: bold; width: 30%">Categorie en sub categorie</td>
+    <td style="width: 10%">Medewerker</td>
+    <td style="width: 5%">Datum</td>
+    <td style="width: 5%" class="text-right">Tijd</td>
+    <td style="width: 5%" class="text-right">Tarief</td>
+    <td style="width: 5%" class="text-right">Ereloon</td>
+    <td style="width: 30%">Interne opmerking</td>
+  </tr>
+  @for(category of hierarchyWithRegistrations(); track category.category){
+  <tr class="category">
+    <td [colSpan]="3">{{ category.category }}</td>
+    <td class="text-right">{{ category.duration | number : '0.2-2' }}</td>
+    <td></td>
+    <td class="text-right">{{ category.total | number : '0.2-2' }}</td>
+  </tr>
+  @for(subCategory of category.subCategories;track subCategory.subCategory) {
+  <tr class="sub-category">
+    <td [colSpan]="3">
+      {{ subCategory.subCategory }}
+    </td>
+
+    <td class="text-right">
+      {{ subCategory.duration | number : '0.2-2' }}
+    </td>
+    <td class="text-right"></td>
+    <td class="text-right">
+      {{ subCategory.total | number : '0.2-2' }}
+    </td>
+  </tr>
+  @for(child of subCategory.children; track child.child) { @for(registration of
+  child.registrations; track registration.id) {
+  <tr class="child">
+    <td>{{ child.child }}</td>
+    <td>
+      {{ (registration.user?.name || '').split(' ')[0] }}
+    </td>
+    <td>
+      {{ registration.registrationDate.slice(0, 2) }}/{{
+        registration.registrationDate.slice(2, 4)
+      }}/{{ registration.registrationDate.slice(4, 8) }}
+    </td>
+    <td class="text-right">
+      {{ registration.duration / 60 | number : '0.2-2' }}
+    </td>
+    <td class="text-right">{{ registration.unitPrice | number : '0.1-2' }}</td>
+    <td class="text-right">
+      {{
+        (registration.duration / 60) * registration.unitPrice | number : '0.2-2'
+      }}
+    </td>
+    <td>{{ registration.remarkInternal }}</td>
+  </tr>
+  }
+  <!--  <tr class="child child&#45;&#45;total">-->
+  <!--    <td></td>-->
+  <!--    <td></td>-->
+  <!--    <td></td>-->
+  <!--    <td>-->
+  <!--      @let durationTotal = child.registrations | total : 'duration';-->
+  <!--      {{ durationTotal / 60 | number : '0.2-2' }}-->
+  <!--    </td>-->
+  <!--    <td>-->
+  <!--      {{ child.registrations[0].unitPrice }}-->
+  <!--    </td>-->
+  <!--    <td></td>-->
+  <!--  </tr>-->
+  <tr class="sub-category--end">
+    <td colspan="6"></td>
+  </tr>
+  }}}
+</table>

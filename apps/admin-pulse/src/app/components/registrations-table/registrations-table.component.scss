@@ -1,0 +1,62 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+table {
+  width: 100%;
+}
+
+td {
+  padding: 0px 8px;
+}
+
+.header {
+  margin: 16px;
+  background-color: lightblue;
+
+  td {
+    padding: 8px;
+  }
+}
+
+tr.category {
+  font-size: 16px;
+  font-weight: bold;
+  td {
+    padding: 4px 6px 4px 8px;
+  }
+}
+
+tr.sub-category {
+  color: darkgray;
+  font-weight: bold;
+  font-size: 14px;
+  td {
+    padding-bottom: 4px;
+    &:first-child {
+      padding-left: 16px;
+    }
+  }
+
+  &--end {
+    height: 8px;
+  }
+}
+
+tr.child {
+  font-size: 12px;
+  td {
+    &:first-child {
+      padding-left: 24px;
+    }
+  }
+
+  &--total {
+    font-weight: bold;
+  }
+}
+
+td.total {
+  border: 1px solid black;
+}
