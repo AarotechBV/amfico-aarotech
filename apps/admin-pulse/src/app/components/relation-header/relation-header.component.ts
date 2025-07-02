@@ -11,5 +11,5 @@ import { Relation } from '../../models/relation.model';
 export class RelationHeaderComponent {
   relation = input.required<Relation>();
 
-  today = new Date();
+  registrationDateUntil = input.required<Date>();
 }

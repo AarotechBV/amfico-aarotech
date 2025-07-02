@@ -1,14 +1,27 @@
-<header>
+<header xmlns="http://www.w3.org/1999/html">
   <h1>Registrations</h1>
+
+  <input
+    type="date"
+    (change)="selectDate($event)"
+    [ngModel]="registrationDateUntil()"
+  />
   <button class="print" (click)="print()">Print</button>
 </header>
 
+@if(isLoading()){
+<small>(Loading)</small>}
+<!--@else{-->
 @for (relation of relationsWithRegistrations(); track relation.id) {
 <div class="relation">
-  <ap-relation-header [relation]="relation" />
+  @if(registrationDateUntil(); as date) {
+
   <ap-registrations-table
+    [relation]="relation"
+    [registrationDateUntil]="date"
     [registrations]="relation.registrations"
     [hierarchy]="hierarchy()"
-  />
+  />}
 </div>
 }
+<!--}-->

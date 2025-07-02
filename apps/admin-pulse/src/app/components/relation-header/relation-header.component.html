@@ -1,8 +1,14 @@
-<div>{{ relation().code }}</div>
-<div>
-  Dossier:
-  <span class="name"
-    >{{ relation().displayName }} {{ relation().legalForm }}</span
-  >
-</div>
-<div>Prestaties tot en met: {{ today | date : 'dd/MM/yyyy' }}</div>
+<section class="left">
+  <span>{{ relation().startCode }}</span>
+  <span class="company"> {{ relation().codes.join(', ') }}</span>
+</section>
+<section class="center">
+  <!--  <span class="name">{{ relation().displayNames.join(', ') }}</span>-->
+  <span class="name">{{ relation().mainName }}</span>
+  <span class="company"> {{ relation().company.name }}</span>
+</section>
+<section class="right">
+  <span>
+    Prestaties tot en met: {{ registrationDateUntil() | date : 'dd/MM/yyyy' }}
+  </span>
+</section>

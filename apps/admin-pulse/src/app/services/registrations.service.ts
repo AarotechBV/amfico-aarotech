@@ -4,6 +4,7 @@ import { RegistrationDto } from '../models/registration.dto';
 import { PageDto } from '../models/page.dto';
 import { PriceListItemDto } from '../models/price-list-item.dto';
 import { PriceListItemsHierarchyDto } from '../models/price-list-Items-hierarchy.dto';
+import { RegistrationsRequestDto } from '../models/registrations-request.dto';
 
 @Injectable({
   providedIn: 'root',
@@ -11,9 +12,14 @@ import { PriceListItemsHierarchyDto } from '../models/price-list-Items-hierarchy
 export class RegistrationsService {
   readonly #httpClient = inject(HttpClient);
 
-  listRegistrations(page = 0, pageSize = 20) {
+  listRegistrations(request: RegistrationsRequestDto, page = 0, pageSize = 20) {
     const params = new HttpParams({
-      fromObject: { invoiced: false, page, pageSize },
+      fromObject: {
+        ...request,
+        page,
+        pageSize,
+        // relationIdentifier: 'APR00811',
+      },
     });
 
     return this.#httpClient.get<PageDto<RegistrationDto>>(

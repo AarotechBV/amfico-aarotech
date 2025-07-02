@@ -2,10 +2,12 @@ import { Component, computed, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Registration } from '../../models/registration.model';
 import { Hierarchy } from '../../models/hierarchy.model';
+import { RelationHeaderComponent } from '../relation-header/relation-header.component';
+import { Relation } from '../../models/relation.model';
 
 @Component({
   selector: 'ap-registrations-table',
-  imports: [CommonModule],
+  imports: [CommonModule, RelationHeaderComponent],
   templateUrl: './registrations-table.component.html',
   styleUrl: './registrations-table.component.scss',
 })
@@ -14,6 +16,10 @@ export class RegistrationsTableComponent {
 
   hierarchy = input<Hierarchy>([]);
 
+  relation = input.required<Relation>();
+
+  registrationDateUntil = input.required<Date>();
+
   hierarchyWithRegistrations = computed(() => {
     return this.hierarchy()
       .map((category) => ({
@@ -21,16 +27,24 @@ export class RegistrationsTableComponent {
         subCategories: category.subCategories
           .map((subCategory) => ({
             ...subCategory,
-
-            children: subCategory.children
-              .map((child) => ({
+            subCategory: subCategory.subCategory || category.category,
+            children: [
+              {
+                child: subCategory.subCategory || category.category,
+                id: '',
+                registrations: this.registrations().filter(
+                  (registration) =>
+                    registration.priceListItemIdentifier === subCategory.id
+                ),
+              },
+              ...subCategory.children.map((child) => ({
                 ...child,
                 registrations: this.registrations().filter(
                   (registration) =>
-                    registration.priceListItemCode === child.code
+                    registration.priceListItemIdentifier === child.id
                 ),
-              }))
-              .filter((child) => child.registrations.length > 0),
+              })),
+            ].filter((child) => child.registrations.length > 0),
           }))
           .filter((subCategory) => subCategory.children.length > 0),
       }))
@@ -64,5 +78,19 @@ export class RegistrationsTableComponent {
             .reduce((acc, cur) => acc + (cur.duration / 60) * cur.unitPrice, 0),
         })),
       }));
+  });
+
+  total = computed(() => {
+    return this.hierarchyWithRegistrations().reduce(
+      (acc, cur) => acc + cur.total,
+      0
+    );
+  });
+
+  durationTotal = computed(() => {
+    return this.hierarchyWithRegistrations().reduce(
+      (acc, cur) => acc + cur.duration,
+      0
+    );
   });
 }
