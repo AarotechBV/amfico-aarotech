@@ -1,12 +1,13 @@
 :host {
   display: block;
   width: 100%;
+  page-break-after: always;
 }
 
 table {
   width: 100%;
   clear: both;
-  page-break-after: always;
+  //page-break-after: always;
 }
 
 td {
@@ -61,4 +62,16 @@ tr.child {
 
 td.total {
   border: 1px solid black;
+}
+
+@media screen {
+  .spacing {
+    display: none;
+  }
+}
+@media print {
+  .spacing {
+    display: block;
+    height: 20px;
+  }
 }

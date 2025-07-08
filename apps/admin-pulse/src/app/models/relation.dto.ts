@@ -20,3 +20,8 @@ export enum RelationLinkType {
   AUDITOR = 7,
   OTHER_MEANS = 8,
 }
+
+export const toInvoiceRelationLinkTypes = [
+  RelationLinkType.BENEFICIARY,
+  RelationLinkType.OWNER_DIRECTOR,
+];
