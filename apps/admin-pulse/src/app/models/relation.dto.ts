@@ -1,13 +1,17 @@
+import { CompanyDto } from './company.dto';
+
 export interface RelationDto {
   id: string;
   name: string;
   code: string;
   displayName: string;
+  company?: CompanyDto;
   uniqueIdentifier: string;
   accountingRelationcode: string;
   legalForm: string;
   companyId: string;
   tos: { linkType: RelationLinkType; uniqueIdentifier: string }[];
+  relationGroupName?: string;
 }
 
 export enum RelationLinkType {

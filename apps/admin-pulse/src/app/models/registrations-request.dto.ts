@@ -1,4 +1,6 @@
 export interface RegistrationsRequestDto {
-  createDateUntil: string; //ddMMyyyy
+  registrationDateUntil: string; //ddMMyyyy
   invoiced: boolean;
+  neverInvoice: boolean;
+  relationIdentifier?: string;
 }

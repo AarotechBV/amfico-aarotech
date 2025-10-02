@@ -1,5 +1,11 @@
 <section class="left">
-  <span>{{ relation().startCode }}</span>
+  <div>
+    {{ relation().startCode }}
+    @if(relation().relationGroupName === 'EZ zonder tijdsregistratie') {
+    <small class="ez">Ez zonder tijdsregistratie</small>
+
+    }
+  </div>
   <span class="company"> {{ relation().codes.join(', ') }}</span>
 </section>
 <section class="center">

@@ -296,15 +296,16 @@ export const RegistrationsOverviewStore = signalStore(
                         pageSize: request.pageSize,
                       });
                     } else {
-                      console.log(
-                        store.relationEntities().filter(
-                          (rel) =>
-                            // rel.code === '1001-01' || rel.code === '1001'
-                            rel.code === '3093' ||
-                            rel.code === '1346' ||
-                            rel.uniqueIdentifier === 'APR00008'
-                        )
-                      );
+                      // console.log(
+                      //   store.relationEntities().filter(
+                      //     (rel) =>
+                      // rel.code === '1001-01' || rel.code === '1001'
+                      // rel.code === '3093' ||
+                      // rel.code === '1346' ||
+                      // rel.uniqueIdentifier === 'APR00008'
+                      // rel.code === '9999'
+                      // )
+                      // );
                     }
                   },
                   error: (err) => console.error(err),
@@ -342,14 +343,31 @@ export const RegistrationsOverviewStore = signalStore(
                   next: (page) => {
                     patchState(
                       store,
-                      setEntities(page.results, registrationConfig)
+                      setEntities(
+                        page.results.filter(
+                          (registration) =>
+                            registration.neverInvoice ===
+                            request.request.neverInvoice
+                        ),
+                        registrationConfig
+                      )
                     );
+
                     if (page.currentPage < page.pageCount) {
                       loadRegistrations({
                         request: request.request,
                         page: page.currentPage + 1,
                         pageSize: request.pageSize,
                       });
+                    } else {
+                      // console.log(
+                      //   'registrations',
+                      //   store
+                      //     .registrationEntities()
+                      //     .filter(
+                      //       (reg) => reg.relationIdentifier === 'APR01057'
+                      //     )
+                      // );
                     }
                   },
                   error: (err) => console.error(err),

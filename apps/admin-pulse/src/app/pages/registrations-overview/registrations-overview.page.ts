@@ -22,7 +22,8 @@ export class RegistrationsOverviewPage {
   readonly #store = inject(RegistrationsOverviewStore);
 
   registrationDateUntil: WritableSignal<Date | null> = signal<Date | null>(
-    null
+    // null
+    new Date(new Date().setDate(1))
   );
   invoiced: WritableSignal<boolean> = signal<boolean>(false);
 
@@ -37,8 +38,9 @@ export class RegistrationsOverviewPage {
       if (registrationDateUntil) {
         this.#store.loadRegistrations({
           request: {
+            neverInvoice: false,
             invoiced,
-            createDateUntil: dateToString(registrationDateUntil),
+            registrationDateUntil: dateToString(registrationDateUntil),
           },
           page: 0,
           pageSize: 0,
