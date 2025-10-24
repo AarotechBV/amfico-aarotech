@@ -8,7 +8,7 @@
     <td style="font-weight: bold; width: 30%">Categorie en sub categorie</td>
     <td style="width: 10%">Medewerker</td>
     <td style="width: 5%">Datum</td>
-    <td style="width: 5%" class="text-right">Tijd</td>
+    <td style="width: 5%" class="text-right">Tijd/aantal</td>
     <td style="width: 5%" class="text-right">Tarief</td>
     <td style="width: 5%" class="text-right">Ereloon</td>
     <td style="width: 30%">Interne opmerking</td>
@@ -78,12 +78,18 @@
       }}/{{ registration.registrationDate.slice(4, 8) }}
     </td>
     <td class="text-right">
-      {{ registration.duration / 60 | number : '0.2-2' }}
+      {{
+        registration.duration
+          ? (registration.duration / 60 | number : '0.2-2')
+          : registration.quantity
+      }}
     </td>
     <td class="text-right">{{ registration.unitPrice | number : '0.2-2' }}</td>
     <td class="text-right">
       {{
-        (registration.duration / 60) * registration.unitPrice | number : '0.2-2'
+        (registration.duration
+          ? registration.duration / 60
+          : registration.quantity) * registration.unitPrice | number : '0.2-2'
       }}
     </td>
     <td>{{ registration.remarkInternal }}</td>
@@ -100,28 +106,53 @@
   [relation]="relation()"
   [registrationDateUntil]="registrationDateUntil()"
 />
-<table style="width: 50%">
-  <tr class="header">
-    <td>Categorie</td>
-    <td>Tijd</td>
-    <td>Ereloon</td>
-  </tr>
-  @for(category of hierarchyWithRegistrations(); track category.category){
+<div class="summaries">
+  <table>
+    <tr class="header">
+      <td>Categorie</td>
+      <td>Tijd</td>
+      <td>Ereloon</td>
+    </tr>
+    @for(category of hierarchyWithRegistrations(); track category.category){
 
-  <tr>
-    <td>{{ category.category }}</td>
-    <td class="text-right">{{ category.duration | number : '0.2-2' }}</td>
-    <td class="text-right">{{ category.total | number : '0.2-2' }}</td>
-  </tr>
-  }
-  <tr>
-    <td style="font-weight: bold">Totaal</td>
+    <tr>
+      <td>{{ category.category }}</td>
+      <td class="text-right">
+        @if(category.quantity){*}
+        {{ category.duration | number : '0.2-2' }}
+      </td>
+      <td class="text-right">{{ category.total | number : '0.2-2' }}</td>
+    </tr>
+    }
+    <tr>
+      <td style="font-weight: bold">Totaal</td>
 
-    <td style="font-weight: bold" class="text-right">
-      {{ durationTotal() | number : '0.2-2' }}
-    </td>
-    <td style="font-weight: bold" class="text-right">
-      {{ total() | number : '0.2-2' }}
-    </td>
-  </tr>
-</table>
+      <td style="font-weight: bold" class="text-right">
+        @if(quantityTotal()){*}
+        {{ durationTotal() | number : '0.2-2' }}
+      </td>
+      <td style="font-weight: bold" class="text-right">
+        {{ total() | number : '0.2-2' }}
+      </td>
+    </tr>
+  </table>
+  <table>
+    <tr class="header">
+      <td>Nummer</td>
+      <td>Vervaldatum</td>
+      <td>Bedrag</td>
+      <td>Betaald</td>
+    </tr>
+    @for(invoice of relation().invoices; track invoice.id){
+
+    <tr>
+      <td>{{ invoice.invoiceNumber }}</td>
+      <td>{{ invoice.dueDateAsDate | date : 'dd/MM/yyyy' }}</td>
+      <td class="text-right">
+        {{ invoice.originalAmount | number : '0.2-2' }}
+      </td>
+      <td>{{ invoice.paid ? 'Ja' : 'Nee' }}</td>
+    </tr>
+    }
+  </table>
+</div>

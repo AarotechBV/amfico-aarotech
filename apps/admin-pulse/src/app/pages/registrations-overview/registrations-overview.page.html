@@ -1,18 +1,30 @@
 <header xmlns="http://www.w3.org/1999/html">
   <h1>Registrations</h1>
+  <select
+    [ngModel]="this.selectedCompanyId()"
+    (ngModelChange)="selectCompany($event)"
+  >
+    <!--    <option [value]="null" [selected]="selectedCompanyId() === null">-->
+    <!--      select-->
+    <!--    </option>-->
+    @for(company of companies(); track company.id) {
+    <option [value]="company.id">{{company.name}}</option>
+    }
+  </select>
 
   <input
+    placeholder="Select date"
     type="date"
     (change)="selectDate($event)"
-    [ngModel]="registrationDateUntil()"
+    [ngModel]="registrationDateUntil() | date :'yyyy-MM-dd'"
   />
+
   <button class="print" (click)="print()">Print</button>
 </header>
 
 @if(isLoading()){
-<small>(Loading)</small>}
-<!--@else{-->
-@for (relation of relationsWithRegistrations(); track relation.id) {
+<small>(Loading)</small>} @else{ @for (relation of
+filteredRelationsWithRegistrations(); track relation.id) {
 <div class="relation">
   @if(registrationDateUntil(); as date) {
 
@@ -23,5 +35,4 @@
     [hierarchy]="hierarchy()"
   />}
 </div>
-}
-<!--}-->
+} }

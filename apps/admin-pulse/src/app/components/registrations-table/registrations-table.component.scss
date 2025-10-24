@@ -75,3 +75,15 @@ td.total {
     height: 20px;
   }
 }
+
+.summaries {
+  display: flex;
+  flex-direction: row;
+  align-items: start;
+  gap: 20px;
+
+  & > table {
+    flex-grow: 1;
+    flex-basis: auto;
+  }
+}

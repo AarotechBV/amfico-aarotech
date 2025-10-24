@@ -9,7 +9,7 @@ import { UserDto } from '../models/user.dto';
 export class UsersService {
   readonly #httpClient = inject(HttpClient);
 
-  listUsers(page = 0, pageSize = 20) {
+  listUsers(page = 0, pageSize = 400) {
     const params = new HttpParams({ fromObject: { page, pageSize } });
     return this.#httpClient.get<PageDto<UserDto>>(
       'https://api.adminpulse.be/users',

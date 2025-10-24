@@ -1,16 +1,18 @@
 <section class="left">
   <div>
-    {{ relation().startCode }}
+    {{ relation().code || relation().uniqueIdentifier }}
     @if(relation().relationGroupName === 'EZ zonder tijdsregistratie') {
     <small class="ez">Ez zonder tijdsregistratie</small>
 
     }
   </div>
-  <span class="company"> {{ relation().codes.join(', ') }}</span>
+  <span class="company">
+    {{ relation().invoicedOnBehalfOfCodes.join(', ') }}</span
+  >
 </section>
 <section class="center">
   <!--  <span class="name">{{ relation().displayNames.join(', ') }}</span>-->
-  <span class="name">{{ relation().mainName }}</span>
+  <span class="name">{{ relation().displayName }}</span>
   <span class="company"> {{ relation().company?.name }}</span>
 </section>
 <section class="right">

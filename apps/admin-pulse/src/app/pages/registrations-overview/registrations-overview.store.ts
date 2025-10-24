@@ -24,12 +24,20 @@ import { RegistrationsService } from '../../services/registrations.service';
 import { tapResponse } from '@ngrx/operators';
 import { UsersService } from '../../services/users.service';
 import { RelationsService } from '../../services/relations.service';
-import { GroupedRelation, Relation } from '../../models/relation.model';
+import {
+  Relation,
+  RelationWithInvoicesSchedules,
+} from '../../models/relation.model';
 import { Hierarchy } from '../../models/hierarchy.model';
 import { RegistrationsRequestDto } from '../../models/registrations-request.dto';
 import { CompanyDto } from '../../models/company.dto';
 import { CompaniesService } from '../../services/companies.service';
+import { InvoicesScheduleDto } from '../../models/invoices-schedule.dto';
 import { compareRelations } from '../../utils/compare-relations.util';
+import { InvoiceDto } from '../../models/invoice.dto';
+import { InvoicesRequestDto } from '../../models/invoices-request.dto';
+import { InvoicesService } from '../../services/invoices.service';
+import { parseDateFromString } from '../../utils/parse-date-from-string.util';
 
 type RegistrationsOverviewState = {
   _hierarchy: PriceListItemsHierarchyDto | null;
@@ -53,10 +61,22 @@ const registrationConfig = entityConfig({
   selectId: (registration) => registration.id,
 });
 
+const invoiceConfig = entityConfig({
+  entity: type<InvoiceDto>(),
+  collection: 'invoice',
+  selectId: (invoice) => invoice.id,
+});
+
 const relationConfig = entityConfig({
   entity: type<RelationDto>(),
   collection: 'relation',
-  selectId: (relation) => relation.id,
+  selectId: (relation) => relation.uniqueIdentifier,
+});
+
+const invoicesScheduleConfig = entityConfig({
+  entity: type<InvoicesScheduleDto>(),
+  collection: 'invoicesSchedule',
+  selectId: (invoicesSchedule) => invoicesSchedule.id,
 });
 
 const companyConfig = entityConfig({
@@ -71,6 +91,8 @@ export const RegistrationsOverviewStore = signalStore(
   withEntities(registrationConfig),
   withEntities(relationConfig),
   withEntities(companyConfig),
+  withEntities(invoicesScheduleConfig),
+  withEntities(invoiceConfig),
   withComputed(
     ({
       _loading,
@@ -78,7 +100,11 @@ export const RegistrationsOverviewStore = signalStore(
       registrationEntities,
       userEntityMap,
       relationEntities,
+      relationEntityMap,
       companyEntityMap,
+      invoicesScheduleEntityMap,
+      invoicesScheduleEntities,
+      invoiceEntities,
     }) => {
       const isLoading = computed(() => _loading() > 0);
       const hierarchy = computed((): Hierarchy => {
@@ -118,62 +144,81 @@ export const RegistrationsOverviewStore = signalStore(
         }
       });
 
-      const groupedRelations = computed((): GroupedRelation[] => {
-        const relations = relationEntities().reduce((acc, relation) => {
-          const startCode =
-            relation.code?.split('-')[0] || relation.uniqueIdentifier;
-          if (acc[startCode]) {
-            acc[startCode].displayNames.push(relation.displayName);
-            acc[startCode].codes.push(relation.code);
-            acc[startCode].uniqueIdentifiers.push(relation.uniqueIdentifier);
-          } else {
-            acc[startCode] = {
-              ...relation,
-              company: companyEntityMap()[relation.companyId],
-              displayNames: [relation.displayName],
-              startCode,
-              uniqueIdentifiers: [relation.uniqueIdentifier],
-              codes: [relation.code],
-            };
-          }
-          if (relation.code === startCode) {
-            acc[startCode].mainName = relation.displayName;
-          }
-          return acc;
-        }, {} as Record<string, GroupedRelation>);
-        return Object.values(relations)
-          .sort(compareRelations)
-          .map((relation) => {
-            const updatedRelation = relation;
+      const identifiersInvoicedOnOtherRelations = computed((): string[] => {
+        const invoicesSchedulesEntities = invoicesScheduleEntities();
 
-            updatedRelation.displayNames = [
-              ...new Set(relation.displayNames.filter((name) => !!name)),
-            ].sort((a, b) => a.localeCompare(b));
-
-            updatedRelation.codes = [
-              ...new Set(relation.codes.filter((code) => !!code)),
-            ].sort((a, b) => a.localeCompare(b));
-
-            return updatedRelation;
-          });
+        return invoicesSchedulesEntities
+          .map((schedule) =>
+            schedule.invoicedOnBehalfOf.filter(
+              (identifier) => identifier !== schedule.relationIdentifier
+            )
+          )
+          .flat();
       });
 
+      const relationsWithInvoicesSchedules = computed(
+        (): RelationWithInvoicesSchedules[] => {
+          const relationDtos = relationEntities();
+          const relationMap = relationEntityMap();
+          const companyMap = companyEntityMap();
+          const invoicesSchedulesEntityMap = invoicesScheduleEntityMap();
+          const identiefiersToRemove = identifiersInvoicedOnOtherRelations();
+          return relationDtos
+            .filter(
+              (relationDto) =>
+                !identiefiersToRemove.includes(relationDto.uniqueIdentifier)
+            )
+            .sort(compareRelations)
+            .map((relationDto) => {
+              const invoicedOnBehalfOfIdentifiers = [...new Set(invoicesScheduleEntities().filter(schedule => schedule.relationIdentifier === relationDto.uniqueIdentifier).map(schedule => schedule.invoicedOnBehalfOf).flat())];
+                // invoicesSchedulesEntityMap[relationDto.uniqueIdentifier]
+                //   ?.invoicedOnBehalfOf || [];
+
+
+
+              const invoicedOnBehalfOfCodes = invoicedOnBehalfOfIdentifiers
+                .map((identifier) => relationMap[identifier]?.code)
+                .filter((code) => code !== undefined);
+
+              const company = companyMap[relationDto.companyId];
+
+              return {
+                ...relationDto,
+                invoicedOnBehalfOfIdentifiers,
+                invoicedOnBehalfOfCodes,
+                company,
+              };
+            });
+        }
+      );
+
       const relationsWithRegistrations = computed((): Relation[] => {
-        const relations = groupedRelations();
+        const relations = relationsWithInvoicesSchedules();
         const registrations = registrationEntities();
+        const invoices = invoiceEntities();
 
         return relations
           .map((relation) => ({
             ...relation,
             registrations: registrations
               .filter((registration) =>
-                relation.uniqueIdentifiers.includes(
-                  registration.relationIdentifier
-                )
+                [
+                  relation.uniqueIdentifier,
+                  ...relation.invoicedOnBehalfOfIdentifiers,
+                ].includes(registration.relationIdentifier)
               )
               .map((registration) => ({
                 ...registration,
                 user: userEntityMap()[registration.userId],
+              })),
+            invoices: invoices
+              .filter(
+                (invoice) =>
+                  invoice.relationIdentifier === relation.uniqueIdentifier
+              )
+              .map((invoice) => ({
+                ...invoice,
+                dueDateAsDate: parseDateFromString(invoice.dueDate),
               })),
           }))
           .filter((relation) => relation.registrations.length > 0);
@@ -183,6 +228,8 @@ export const RegistrationsOverviewStore = signalStore(
         isLoading,
         hierarchy,
         relationsWithRegistrations,
+        relationsWithInvoicesSchedules,
+        identifiersInvoicedOnOtherRelations,
       };
     }
   ),
@@ -190,6 +237,7 @@ export const RegistrationsOverviewStore = signalStore(
     (
       store,
       registrationsService = inject(RegistrationsService),
+      invoicesService = inject(InvoicesService),
       usersService = inject(UsersService),
       relationsService = inject(RelationsService),
       companiesService = inject(CompaniesService)
@@ -215,7 +263,7 @@ export const RegistrationsOverviewStore = signalStore(
         )
       );
 
-      const loadUsers = rxMethod<{ page: number; pageSize: number }>(
+      const loadUsers = rxMethod<{ page: number; pageSize?: number }>(
         pipe(
           distinctUntilChanged(),
           tap((request) => {
@@ -234,8 +282,6 @@ export const RegistrationsOverviewStore = signalStore(
                       page: page.currentPage + 1,
                       pageSize: request.pageSize,
                     });
-                  } else {
-                    console.log(store.userEntities());
                   }
                 },
                 error: (err) => console.error(err),
@@ -270,7 +316,7 @@ export const RegistrationsOverviewStore = signalStore(
         )
       );
 
-      const loadRelations = rxMethod<{ page: number; pageSize: number }>(
+      const loadRelations = rxMethod<{ page: number; pageSize?: number }>(
         pipe(
           distinctUntilChanged(),
           tap((request) => {
@@ -295,17 +341,46 @@ export const RegistrationsOverviewStore = signalStore(
                         page: page.currentPage + 1,
                         pageSize: request.pageSize,
                       });
-                    } else {
-                      // console.log(
-                      //   store.relationEntities().filter(
-                      //     (rel) =>
-                      // rel.code === '1001-01' || rel.code === '1001'
-                      // rel.code === '3093' ||
-                      // rel.code === '1346' ||
-                      // rel.uniqueIdentifier === 'APR00008'
-                      // rel.code === '9999'
-                      // )
-                      // );
+                    }
+                  },
+                  error: (err) => console.error(err),
+                  finalize: () => {
+                    patchState(store, { _loading: store._loading() - 1 });
+                  },
+                })
+              );
+          })
+        )
+      );
+
+      const loadInvoicesSchedules = rxMethod<{
+        page: number;
+        pageSize?: number;
+      }>(
+        pipe(
+          distinctUntilChanged(),
+          tap((request) => {
+            patchState(store, { _loading: store._loading() + 1 });
+            if (request.page === 0) {
+              patchState(store, removeAllEntities(invoicesScheduleConfig));
+            }
+          }),
+          switchMap((request) => {
+            return relationsService
+              .listAllInvoicesSchedules(request.page, request.pageSize)
+              .pipe(
+                tapResponse({
+                  next: (page) => {
+                    patchState(
+                      store,
+                      setEntities(page.results, invoicesScheduleConfig)
+                    );
+
+                    if (page.currentPage < page.pageCount) {
+                      loadInvoicesSchedules({
+                        page: page.currentPage + 1,
+                        pageSize: request.pageSize,
+                      });
                     }
                   },
                   error: (err) => console.error(err),
@@ -321,7 +396,7 @@ export const RegistrationsOverviewStore = signalStore(
       const loadRegistrations = rxMethod<{
         request: RegistrationsRequestDto;
         page: number;
-        pageSize: number;
+        pageSize?: number;
       }>(
         pipe(
           distinctUntilChanged(),
@@ -347,7 +422,8 @@ export const RegistrationsOverviewStore = signalStore(
                         page.results.filter(
                           (registration) =>
                             registration.neverInvoice ===
-                            request.request.neverInvoice
+                              request.request.neverInvoice &&
+                            !registration.inFixedAmount
                         ),
                         registrationConfig
                       )
@@ -359,15 +435,45 @@ export const RegistrationsOverviewStore = signalStore(
                         page: page.currentPage + 1,
                         pageSize: request.pageSize,
                       });
-                    } else {
-                      // console.log(
-                      //   'registrations',
-                      //   store
-                      //     .registrationEntities()
-                      //     .filter(
-                      //       (reg) => reg.relationIdentifier === 'APR01057'
-                      //     )
-                      // );
+                    }
+                  },
+                  error: (err) => console.error(err),
+                  finalize: () => {
+                    patchState(store, { _loading: store._loading() - 1 });
+                  },
+                })
+              );
+          })
+        )
+      );
+
+      const loadInvoices = rxMethod<{
+        request: InvoicesRequestDto;
+        page: number;
+        pageSize?: number;
+      }>(
+        pipe(
+          distinctUntilChanged(),
+          tap((request) => {
+            patchState(store, { _loading: store._loading() + 1 });
+            if (request.page === 0) {
+              patchState(store, removeAllEntities(invoiceConfig));
+            }
+          }),
+          switchMap((request) => {
+            return invoicesService
+              .listAllInvoices(request.request, request.page, request.pageSize)
+              .pipe(
+                tapResponse({
+                  next: (page) => {
+                    patchState(store, setEntities(page.results, invoiceConfig));
+
+                    if (page.currentPage < page.pageCount) {
+                      loadInvoices({
+                        request: request.request,
+                        page: page.currentPage + 1,
+                        pageSize: request.pageSize,
+                      });
                     }
                   },
                   error: (err) => console.error(err),
@@ -386,6 +492,8 @@ export const RegistrationsOverviewStore = signalStore(
         loadRegistrations,
         loadRelations,
         loadCompanies,
+        loadInvoicesSchedules,
+        loadInvoices,
       };
     }
   ),
@@ -393,8 +501,9 @@ export const RegistrationsOverviewStore = signalStore(
     onInit(store) {
       store.loadHierarchy();
       store.loadCompanies();
-      store.loadUsers({ page: 0, pageSize: 50 });
-      store.loadRelations({ page: 0, pageSize: 50 });
+      store.loadUsers({ page: 0 });
+      store.loadRelations({ page: 0 });
+      store.loadInvoicesSchedules({ page: 0 });
     },
   })
 );

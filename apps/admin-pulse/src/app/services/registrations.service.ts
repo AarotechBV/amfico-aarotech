@@ -12,13 +12,16 @@ import { RegistrationsRequestDto } from '../models/registrations-request.dto';
 export class RegistrationsService {
   readonly #httpClient = inject(HttpClient);
 
-  listRegistrations(request: RegistrationsRequestDto, page = 0, pageSize = 20) {
+  listRegistrations(
+    request: RegistrationsRequestDto,
+    page = 0,
+    pageSize = 400
+  ) {
     const params = new HttpParams({
       fromObject: {
         ...request,
         page,
         pageSize,
-        // relationIdentifier: 'APR00811',
       },
     });
 

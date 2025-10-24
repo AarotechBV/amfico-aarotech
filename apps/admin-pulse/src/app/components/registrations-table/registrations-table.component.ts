@@ -60,12 +60,26 @@ export class RegistrationsTableComponent {
           .flat()
           .flat()
           .reduce((acc, cur) => acc + cur / 60, 0),
+        quantity: category.subCategories
+          .map((subCat) =>
+            subCat.children.map((ch) =>
+              ch.registrations.map((reg) => reg.quantity)
+            )
+          )
+          .flat()
+          .flat()
+          .reduce((acc, cur) => acc + cur, 0),
         total: category.subCategories
           .map((subCat) => subCat.children.map((ch) => ch.registrations))
 
           .flat()
           .flat()
-          .reduce((acc, cur) => acc + (cur.duration / 60) * cur.unitPrice, 0),
+          .reduce(
+            (acc, cur) =>
+              acc +
+              (cur.duration ? cur.duration / 60 : cur.quantity) * cur.unitPrice,
+            0
+          ),
         subCategories: category.subCategories.map((subCat) => ({
           ...subCat,
           duration: subCat.children
@@ -75,7 +89,13 @@ export class RegistrationsTableComponent {
           total: subCat.children
             .map((ch) => ch.registrations)
             .flat()
-            .reduce((acc, cur) => acc + (cur.duration / 60) * cur.unitPrice, 0),
+            .reduce(
+              (acc, cur) =>
+                acc +
+                (cur.duration ? cur.duration / 60 : cur.quantity) *
+                  cur.unitPrice,
+              0
+            ),
         })),
       }));
   });
@@ -90,6 +110,13 @@ export class RegistrationsTableComponent {
   durationTotal = computed(() => {
     return this.hierarchyWithRegistrations().reduce(
       (acc, cur) => acc + cur.duration,
+      0
+    );
+  });
+
+  quantityTotal = computed(() => {
+    return this.hierarchyWithRegistrations().reduce(
+      (acc, cur) => acc + cur.quantity,
       0
     );
   });
