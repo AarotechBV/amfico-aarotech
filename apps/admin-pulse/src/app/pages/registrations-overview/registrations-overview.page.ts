@@ -31,29 +31,35 @@ export class RegistrationsOverviewPage {
     null
   );
 
-  debug = effect(() => {
-    const schedules = this.#store.invoicesScheduleEntities();
-    const relations = this.#store.relationEntities();
-    // const relationsWithRegistrations = this.#store.relationsWithRegistrations();
-    untracked(() => {
-      console.log(relations.filter((r) => r.code === '5025'));
-      console.log(
-        schedules.filter(
-          (s) =>
-            s.relationIdentifier === 'APR00510' ||
-            s.invoicedOnBehalfOf.includes('APR00510')
-        )
-      );
-      // console.log(
-      //   relationsWithRegistrations
-      //     // .filter((r) => r.code === '1007')
-      //     .map((r) =>
-      //       r.registrations.filter(({ invoicedQuantity }) => !!invoicedQuantity)
-      //     )
-      //     .filter((r) => r.length)
-      // );
-    });
-  });
+  // debug = effect(() => {
+  //   const schedules = this.#store.invoicesScheduleEntities();
+  //   const relations = this.#store.relationEntities();
+  //   const relationsWithRegistrations = this.#store.relationsWithRegistrations();
+  //   untracked(() => {
+  // console.log(relations.filter((r) => r.code === '5025'));
+  // console.log(
+  //   schedules.filter(
+  //     (s) =>
+  //       s.relationIdentifier === 'APR00510' ||
+  //       s.invoicedOnBehalfOf.includes('APR00510')
+  //   )
+  // );
+  //     console.log(
+  //       relationsWithRegistrations
+  //         // .filter((r) => r.code === '1007')
+  //         .map((r) =>
+  //           r.registrations.filter(
+  //             (registration) =>
+  //               registration.priceListItemCode ===
+  //                 '100997ee-e7a7-459c-e803-08dd746e671d' ||
+  //               registration.priceListItemIdentifier ===
+  //                 '100997ee-e7a7-459c-e803-08dd746e671d'
+  //           )
+  //         )
+  //         .filter((r) => r.length)
+  //     );
+  //   });
+  // });
 
   relationsWithRegistrations = this.#store.relationsWithRegistrations;
   companies = this.#store.companyEntities;

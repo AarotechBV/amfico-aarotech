@@ -1,4 +1,5 @@
 export interface RegistrationDto {
+  assignmentTemplateName: string;
   id: string;
   relationIdentifier: string;
   userId: string;

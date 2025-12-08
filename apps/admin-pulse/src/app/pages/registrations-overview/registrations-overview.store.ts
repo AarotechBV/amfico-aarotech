@@ -170,11 +170,20 @@ export const RegistrationsOverviewStore = signalStore(
             )
             .sort(compareRelations)
             .map((relationDto) => {
-              const invoicedOnBehalfOfIdentifiers = [...new Set(invoicesScheduleEntities().filter(schedule => schedule.relationIdentifier === relationDto.uniqueIdentifier).map(schedule => schedule.invoicedOnBehalfOf).flat())];
-                // invoicesSchedulesEntityMap[relationDto.uniqueIdentifier]
-                //   ?.invoicedOnBehalfOf || [];
-
-
+              const invoicedOnBehalfOfIdentifiers = [
+                ...new Set(
+                  invoicesScheduleEntities()
+                    .filter(
+                      (schedule) =>
+                        schedule.relationIdentifier ===
+                        relationDto.uniqueIdentifier
+                    )
+                    .map((schedule) => schedule.invoicedOnBehalfOf)
+                    .flat()
+                ),
+              ];
+              // invoicesSchedulesEntityMap[relationDto.uniqueIdentifier]
+              //   ?.invoicedOnBehalfOf || [];
 
               const invoicedOnBehalfOfCodes = invoicedOnBehalfOfIdentifiers
                 .map((identifier) => relationMap[identifier]?.code)
@@ -192,9 +201,32 @@ export const RegistrationsOverviewStore = signalStore(
         }
       );
 
+      const filteredRegistrationsBasedOnAssignments = computed(
+        (): RegistrationDto[] => {
+          const registrations = registrationEntities();
+
+          const notAllowedAssignments = ['Softwarekosten', 'Jaarrekening'];
+
+          console.log(
+            registrations.filter((registration) =>
+              notAllowedAssignments.includes(
+                registration.assignmentTemplateName
+              )
+            )
+          );
+
+          return registrations.filter(
+            (registration) =>
+              !notAllowedAssignments.includes(
+                registration.assignmentTemplateName
+              )
+          );
+        }
+      );
+
       const relationsWithRegistrations = computed((): Relation[] => {
         const relations = relationsWithInvoicesSchedules();
-        const registrations = registrationEntities();
+        const registrations = filteredRegistrationsBasedOnAssignments();
         const invoices = invoiceEntities();
 
         return relations
