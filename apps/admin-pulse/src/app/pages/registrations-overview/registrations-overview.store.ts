@@ -207,13 +207,6 @@ export const RegistrationsOverviewStore = signalStore(
 
           const notAllowedAssignments = ['Softwarekosten', 'Jaarrekening'];
 
-          console.log(
-            registrations.filter((registration) =>
-              notAllowedAssignments.includes(
-                registration.assignmentTemplateName
-              )
-            )
-          );
 
           return registrations.filter(
             (registration) =>
@@ -363,9 +356,12 @@ export const RegistrationsOverviewStore = signalStore(
               .pipe(
                 tapResponse({
                   next: (page) => {
+                    const relations = page.results;
+                    const neededCodes = ['1065','1068','1168','1256','1287','1316','1352','5007'];
+                    const filteredRelations = relations.filter(relation => neededCodes.includes(relation.code))
                     patchState(
                       store,
-                      setEntities(page.results, relationConfig)
+                      setEntities(filteredRelations, relationConfig)
                     );
 
                     if (page.currentPage < page.pageCount) {
