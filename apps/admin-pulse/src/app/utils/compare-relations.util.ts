@@ -1,43 +1,24 @@
 import { Relation } from '../models/relation.model';
 import { RelationDto } from '../models/relation.dto';
+import { EZ_RELATION_GROUP } from '../constants';
 
 export const compareRelations = (
-  relationA: Relation | RelationDto,
-  relationB: Relation | RelationDto
+  a: Relation | RelationDto,
+  b: Relation | RelationDto,
 ): number => {
-  const nameA = `${relationA.code || relationA.name}`;
-  const nameB = `${relationB.code || relationB.name}`;
-
-  const companyIdA = `${relationA.company?.name}`;
-  const companyIdB = `${relationB.company?.name}`;
-
-  const relationGroupNameA = relationA.relationGroupName;
-  const relationGroupNameB = relationB.relationGroupName;
-
-  const ezZonderTijdsregistratie = 'EZ zonder tijdsregistratie';
-
-  const relationGroupNameAisEZ =
-    relationGroupNameA === ezZonderTijdsregistratie;
-  const relationGroupNameBisEZ =
-    relationGroupNameB === ezZonderTijdsregistratie;
-
-  if (companyIdA !== companyIdB) {
-    return sortByName(companyIdA, companyIdB);
-  } else if (relationGroupNameAisEZ && !relationGroupNameBisEZ) {
-    return 1;
-  } else if (!relationGroupNameAisEZ && relationGroupNameBisEZ) {
-    return -1;
-  } else {
-    return sortByName(nameA, nameB);
+  const companyA = a.company?.name ?? '';
+  const companyB = b.company?.name ?? '';
+  if (companyA !== companyB) {
+    return companyA.localeCompare(companyB);
   }
-};
 
-const sortByName = (nameA: string, nameB: string): number => {
-  if (nameA < nameB) {
-    return -1;
+  const aIsEZ = a.relationGroupName === EZ_RELATION_GROUP;
+  const bIsEZ = b.relationGroupName === EZ_RELATION_GROUP;
+  if (aIsEZ !== bIsEZ) {
+    return aIsEZ ? 1 : -1;
   }
-  if (nameA > nameB) {
-    return 1;
-  }
-  return 0;
+
+  const nameA = a.code || a.name || '';
+  const nameB = b.code || b.name || '';
+  return nameA.localeCompare(nameB);
 };

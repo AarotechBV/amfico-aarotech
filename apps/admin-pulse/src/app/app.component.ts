@@ -1,12 +1,22 @@
-import { Component, effect, inject, untracked } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  untracked,
+} from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 import { TokenService } from './services/token.service';
 
 @Component({
-  imports: [RouterModule],
   selector: 'ap-root',
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss',
+  imports: [RouterOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (token()) {
+      <router-outlet />
+    }
+  `,
 })
 export class AppComponent {
   readonly #tokenService = inject(TokenService);
@@ -19,7 +29,7 @@ export class AppComponent {
       if (!token) {
         const newToken = window.prompt(
           'Gelieve je token in te geven',
-          'token123'
+          'token123',
         );
         if (newToken) {
           this.#tokenService.updateToken(newToken);

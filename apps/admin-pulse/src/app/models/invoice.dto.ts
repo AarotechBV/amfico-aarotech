@@ -3,7 +3,7 @@ export interface InvoiceDto {
   invoiceNumber: string;
   status: string;
   invoiceType: string;
-  paid: string;
+  paid: boolean;
   discountType: number;
   discountValue: number;
   originalAmount: number;

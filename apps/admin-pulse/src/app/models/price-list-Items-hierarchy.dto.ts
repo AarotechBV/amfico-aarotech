@@ -6,7 +6,7 @@ export type PriceListItemsHierarchyDto = {
     type: number;
     billable: boolean;
     inFixedAmount: boolean;
-    purchasePrice: any;
+    purchasePrice: unknown;
   }[];
   id: string;
   code: string;
@@ -14,5 +14,5 @@ export type PriceListItemsHierarchyDto = {
   type: number;
   billable: boolean;
   inFixedAmount: boolean;
-  purchasePrice: any;
+  purchasePrice: unknown;
 }[];

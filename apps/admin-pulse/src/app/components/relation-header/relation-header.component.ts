@@ -1,10 +1,11 @@
-import { Component, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { Relation } from '../../models/relation.model';
 
 @Component({
   selector: 'ap-relation-header',
-  imports: [CommonModule],
+  imports: [DatePipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './relation-header.component.html',
   styleUrl: './relation-header.component.scss',
 })

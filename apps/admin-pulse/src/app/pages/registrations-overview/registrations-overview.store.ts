@@ -16,9 +16,9 @@ import {
 import { UserDto } from '../../models/user.dto';
 import { RegistrationDto } from '../../models/registration.dto';
 import { RelationDto } from '../../models/relation.dto';
-import { PriceListItemsHierarchyDto } from '../../models/price-list-Items-hierarchy.dto';
+import { PriceListItemsHierarchyDto } from '../../models/price-list-items-hierarchy.dto';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { distinctUntilChanged, pipe, switchMap, tap } from 'rxjs';
+import { EMPTY, expand, pipe, switchMap, tap } from 'rxjs';
 import { computed, inject } from '@angular/core';
 import { RegistrationsService } from '../../services/registrations.service';
 import { tapResponse } from '@ngrx/operators';
@@ -38,15 +38,24 @@ import { InvoiceDto } from '../../models/invoice.dto';
 import { InvoicesRequestDto } from '../../models/invoices-request.dto';
 import { InvoicesService } from '../../services/invoices.service';
 import { parseDateFromString } from '../../utils/parse-date-from-string.util';
+import { ASSIGNMENT_BLACKLIST } from '../../constants';
 
 type RegistrationsOverviewState = {
   _hierarchy: PriceListItemsHierarchyDto | null;
   _loading: number;
+  errors: string[];
 };
 
 const initialState: RegistrationsOverviewState = {
   _hierarchy: null,
   _loading: 0,
+  errors: [],
+};
+
+const errorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'Unknown error';
 };
 
 const userConfig = entityConfig({
@@ -102,132 +111,98 @@ export const RegistrationsOverviewStore = signalStore(
       relationEntities,
       relationEntityMap,
       companyEntityMap,
-      invoicesScheduleEntityMap,
       invoicesScheduleEntities,
       invoiceEntities,
     }) => {
       const isLoading = computed(() => _loading() > 0);
+
       const hierarchy = computed((): Hierarchy => {
-        const hierarchy = _hierarchy();
-        if (hierarchy) {
-          return hierarchy.reduce((acc, item) => {
-            const [category, subCategory] = item.name.split(' - ');
+        const raw = _hierarchy();
+        if (!raw) return [];
+        return raw.reduce((acc, item) => {
+          const [category, subCategory] = item.name.split(' - ');
+          const children = item.items.map((i) => ({
+            child: i.name,
+            id: i.id,
+          }));
 
-            const children = item.items.map((item) => ({
-              child: item.name,
+          const existing = acc.find((c) => c.category === category);
+          if (existing) {
+            existing.subCategories.push({
+              subCategory,
               id: item.id,
-            }));
-
-            const existingCategory = acc.find((c) => c.category === category);
-            if (existingCategory) {
-              existingCategory.subCategories.push({
-                subCategory,
-                id: item.id,
-                children,
-              });
-            } else {
-              acc.push({
-                category,
-                subCategories: [
-                  {
-                    id: item.id,
-                    subCategory,
-                    children,
-                  },
-                ],
-              });
-            }
-            return acc;
-          }, [] as Hierarchy);
-        } else {
-          return [];
-        }
+              children,
+            });
+          } else {
+            acc.push({
+              category,
+              subCategories: [{ id: item.id, subCategory, children }],
+            });
+          }
+          return acc;
+        }, [] as Hierarchy);
       });
 
-      const identifiersInvoicedOnOtherRelations = computed((): string[] => {
-        const invoicesSchedulesEntities = invoicesScheduleEntities();
-
-        return invoicesSchedulesEntities
-          .map((schedule) =>
-            schedule.invoicedOnBehalfOf.filter(
-              (identifier) => identifier !== schedule.relationIdentifier
-            )
-          )
-          .flat();
-      });
+      const identifiersInvoicedOnOtherRelations = computed((): string[] =>
+        invoicesScheduleEntities().flatMap((schedule) =>
+          schedule.invoicedOnBehalfOf.filter(
+            (identifier) => identifier !== schedule.relationIdentifier,
+          ),
+        ),
+      );
 
       const relationsWithInvoicesSchedules = computed(
         (): RelationWithInvoicesSchedules[] => {
           const relationDtos = relationEntities();
           const relationMap = relationEntityMap();
           const companyMap = companyEntityMap();
-          const invoicesSchedulesEntityMap = invoicesScheduleEntityMap();
-          const identiefiersToRemove = identifiersInvoicedOnOtherRelations();
+          const schedules = invoicesScheduleEntities();
+          const identifiersToRemove = identifiersInvoicedOnOtherRelations();
+
           return relationDtos
-            .filter(
-              (relationDto) =>
-                !identiefiersToRemove.includes(relationDto.uniqueIdentifier)
-            )
+            .filter((r) => !identifiersToRemove.includes(r.uniqueIdentifier))
             .sort(compareRelations)
             .map((relationDto) => {
               const invoicedOnBehalfOfIdentifiers = [
                 ...new Set(
-                  invoicesScheduleEntities()
+                  schedules
                     .filter(
-                      (schedule) =>
-                        schedule.relationIdentifier ===
-                        relationDto.uniqueIdentifier
+                      (s) =>
+                        s.relationIdentifier === relationDto.uniqueIdentifier,
                     )
-                    .map((schedule) => schedule.invoicedOnBehalfOf)
-                    .flat()
+                    .flatMap((s) => s.invoicedOnBehalfOf),
                 ),
               ];
-              // invoicesSchedulesEntityMap[relationDto.uniqueIdentifier]
-              //   ?.invoicedOnBehalfOf || [];
 
               const invoicedOnBehalfOfCodes = invoicedOnBehalfOfIdentifiers
                 .map((identifier) => relationMap[identifier]?.code)
-                .filter((code) => code !== undefined);
-
-              const company = companyMap[relationDto.companyId];
+                .filter((code): code is string => code !== undefined);
 
               return {
                 ...relationDto,
                 invoicedOnBehalfOfIdentifiers,
                 invoicedOnBehalfOfCodes,
-                company,
+                company: companyMap[relationDto.companyId],
               };
             });
-        }
+        },
       );
 
       const filteredRegistrationsBasedOnAssignments = computed(
-        (): RegistrationDto[] => {
-          const registrations = registrationEntities();
-
-          const notAllowedAssignments = ['Softwarekosten', 'Jaarrekening'];
-
-          console.log(
-            registrations.filter((registration) =>
-              notAllowedAssignments.includes(
-                registration.assignmentTemplateName
-              )
-            )
-          );
-
-          return registrations.filter(
+        (): RegistrationDto[] =>
+          registrationEntities().filter(
             (registration) =>
-              !notAllowedAssignments.includes(
-                registration.assignmentTemplateName
-              )
-          );
-        }
+              !ASSIGNMENT_BLACKLIST.includes(
+                registration.assignmentTemplateName,
+              ),
+          ),
       );
 
       const relationsWithRegistrations = computed((): Relation[] => {
         const relations = relationsWithInvoicesSchedules();
         const registrations = filteredRegistrationsBasedOnAssignments();
         const invoices = invoiceEntities();
+        const users = userEntityMap();
 
         return relations
           .map((relation) => ({
@@ -237,16 +212,16 @@ export const RegistrationsOverviewStore = signalStore(
                 [
                   relation.uniqueIdentifier,
                   ...relation.invoicedOnBehalfOfIdentifiers,
-                ].includes(registration.relationIdentifier)
+                ].includes(registration.relationIdentifier),
               )
               .map((registration) => ({
                 ...registration,
-                user: userEntityMap()[registration.userId],
+                user: users[registration.userId],
               })),
             invoices: invoices
               .filter(
                 (invoice) =>
-                  invoice.relationIdentifier === relation.uniqueIdentifier
+                  invoice.relationIdentifier === relation.uniqueIdentifier,
               )
               .map((invoice) => ({
                 ...invoice,
@@ -263,7 +238,7 @@ export const RegistrationsOverviewStore = signalStore(
         relationsWithInvoicesSchedules,
         identifiersInvoicedOnOtherRelations,
       };
-    }
+    },
   ),
   withMethods(
     (
@@ -272,250 +247,191 @@ export const RegistrationsOverviewStore = signalStore(
       invoicesService = inject(InvoicesService),
       usersService = inject(UsersService),
       relationsService = inject(RelationsService),
-      companiesService = inject(CompaniesService)
+      companiesService = inject(CompaniesService),
     ) => {
+      const incLoading = () =>
+        patchState(store, (s) => ({ _loading: s._loading + 1 }));
+      const decLoading = () =>
+        patchState(store, (s) => ({ _loading: s._loading - 1 }));
+      const pushError = (scope: string) => (err: unknown) => {
+        console.error(scope, err);
+        patchState(store, (s) => ({
+          errors: [...s.errors, `${scope}: ${errorMessage(err)}`],
+        }));
+      };
+      const clearErrors = () => patchState(store, { errors: [] });
+
       const loadHierarchy = rxMethod<void>(
         pipe(
-          distinctUntilChanged(),
-          tap(() => {
-            patchState(store, { _loading: store._loading() + 1 });
-          }),
-          switchMap(() => {
-            return registrationsService.listPriceListItemsHierarchy().pipe(
+          tap(() => incLoading()),
+          switchMap(() =>
+            registrationsService.listPriceListItemsHierarchy().pipe(
               tapResponse({
                 next: (hierarchy) =>
                   patchState(store, { _hierarchy: hierarchy }),
-                error: (err) => console.error(err),
-                finalize: () => {
-                  patchState(store, { _loading: store._loading() - 1 });
-                },
-              })
-            );
-          })
-        )
-      );
-
-      const loadUsers = rxMethod<{ page: number; pageSize?: number }>(
-        pipe(
-          distinctUntilChanged(),
-          tap((request) => {
-            patchState(store, { _loading: store._loading() + 1 });
-            if (request.page === 0) {
-              patchState(store, removeAllEntities(userConfig));
-            }
-          }),
-          switchMap((request) => {
-            return usersService.listUsers(request.page, request.pageSize).pipe(
-              tapResponse({
-                next: (page) => {
-                  patchState(store, setEntities(page.results, userConfig));
-                  if (page.currentPage < page.pageCount) {
-                    loadUsers({
-                      page: page.currentPage + 1,
-                      pageSize: request.pageSize,
-                    });
-                  }
-                },
-                error: (err) => console.error(err),
-                finalize: () => {
-                  patchState(store, { _loading: store._loading() - 1 });
-                },
-              })
-            );
-          })
-        )
+                error: pushError('hierarchy'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
       );
 
       const loadCompanies = rxMethod<void>(
         pipe(
-          distinctUntilChanged(),
-          tap(() => {
-            patchState(store, { _loading: store._loading() + 1 });
-          }),
-          switchMap(() => {
-            return companiesService.listAllCompanies().pipe(
+          tap(() => incLoading()),
+          switchMap(() =>
+            companiesService.listAllCompanies().pipe(
               tapResponse({
-                next: (companies) => {
-                  patchState(store, setEntities(companies, companyConfig));
-                },
-                error: (err) => console.error(err),
-                finalize: () => {
-                  patchState(store, { _loading: store._loading() - 1 });
-                },
-              })
-            );
-          })
-        )
+                next: (companies) =>
+                  patchState(store, setEntities(companies, companyConfig)),
+                error: pushError('companies'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
       );
 
-      const loadRelations = rxMethod<{ page: number; pageSize?: number }>(
+      const loadUsers = rxMethod<void>(
         pipe(
-          distinctUntilChanged(),
-          tap((request) => {
-            patchState(store, { _loading: store._loading() + 1 });
-            if (request.page === 0) {
-              patchState(store, removeAllEntities(relationConfig));
-            }
+          tap(() => {
+            incLoading();
+            patchState(store, removeAllEntities(userConfig));
           }),
-          switchMap((request) => {
-            return relationsService
-              .listAllRelations(request.page, request.pageSize)
-              .pipe(
-                tapResponse({
-                  next: (page) => {
-                    patchState(
-                      store,
-                      setEntities(page.results, relationConfig)
-                    );
-
-                    if (page.currentPage < page.pageCount) {
-                      loadRelations({
-                        page: page.currentPage + 1,
-                        pageSize: request.pageSize,
-                      });
-                    }
-                  },
-                  error: (err) => console.error(err),
-                  finalize: () => {
-                    patchState(store, { _loading: store._loading() - 1 });
-                  },
-                })
-              );
-          })
-        )
+          switchMap(() =>
+            usersService.listUsers(0).pipe(
+              expand((page) =>
+                page.currentPage < page.pageCount
+                  ? usersService.listUsers(page.currentPage + 1)
+                  : EMPTY,
+              ),
+              tapResponse({
+                next: (page) =>
+                  patchState(store, setEntities(page.results, userConfig)),
+                error: pushError('users'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
       );
 
-      const loadInvoicesSchedules = rxMethod<{
-        page: number;
-        pageSize?: number;
-      }>(
+      const loadRelations = rxMethod<void>(
         pipe(
-          distinctUntilChanged(),
-          tap((request) => {
-            patchState(store, { _loading: store._loading() + 1 });
-            if (request.page === 0) {
-              patchState(store, removeAllEntities(invoicesScheduleConfig));
-            }
+          tap(() => {
+            incLoading();
+            patchState(store, removeAllEntities(relationConfig));
           }),
-          switchMap((request) => {
-            return relationsService
-              .listAllInvoicesSchedules(request.page, request.pageSize)
-              .pipe(
-                tapResponse({
-                  next: (page) => {
-                    patchState(
-                      store,
-                      setEntities(page.results, invoicesScheduleConfig)
-                    );
-
-                    if (page.currentPage < page.pageCount) {
-                      loadInvoicesSchedules({
-                        page: page.currentPage + 1,
-                        pageSize: request.pageSize,
-                      });
-                    }
-                  },
-                  error: (err) => console.error(err),
-                  finalize: () => {
-                    patchState(store, { _loading: store._loading() - 1 });
-                  },
-                })
-              );
-          })
-        )
+          switchMap(() =>
+            relationsService.listAllRelations(0).pipe(
+              expand((page) =>
+                page.currentPage < page.pageCount
+                  ? relationsService.listAllRelations(page.currentPage + 1)
+                  : EMPTY,
+              ),
+              tapResponse({
+                next: (page) =>
+                  patchState(store, setEntities(page.results, relationConfig)),
+                error: pushError('relations'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
       );
 
-      const loadRegistrations = rxMethod<{
-        request: RegistrationsRequestDto;
-        page: number;
-        pageSize?: number;
-      }>(
+      const loadInvoicesSchedules = rxMethod<void>(
         pipe(
-          distinctUntilChanged(),
-          tap((request) => {
-            patchState(store, { _loading: store._loading() + 1 });
-            if (request.page === 0) {
-              patchState(store, removeAllEntities(registrationConfig));
-            }
+          tap(() => {
+            incLoading();
+            patchState(store, removeAllEntities(invoicesScheduleConfig));
           }),
-          switchMap((request) => {
-            return registrationsService
-              .listRegistrations(
-                request.request,
-                request.page,
-                request.pageSize
-              )
-              .pipe(
-                tapResponse({
-                  next: (page) => {
-                    patchState(
-                      store,
-                      setEntities(
-                        page.results.filter(
-                          (registration) =>
-                            registration.neverInvoice ===
-                              request.request.neverInvoice &&
-                            !registration.inFixedAmount
-                        ),
-                        registrationConfig
-                      )
-                    );
-
-                    if (page.currentPage < page.pageCount) {
-                      loadRegistrations({
-                        request: request.request,
-                        page: page.currentPage + 1,
-                        pageSize: request.pageSize,
-                      });
-                    }
-                  },
-                  error: (err) => console.error(err),
-                  finalize: () => {
-                    patchState(store, { _loading: store._loading() - 1 });
-                  },
-                })
-              );
-          })
-        )
+          switchMap(() =>
+            relationsService.listAllInvoicesSchedules(0).pipe(
+              expand((page) =>
+                page.currentPage < page.pageCount
+                  ? relationsService.listAllInvoicesSchedules(
+                      page.currentPage + 1,
+                    )
+                  : EMPTY,
+              ),
+              tapResponse({
+                next: (page) =>
+                  patchState(
+                    store,
+                    setEntities(page.results, invoicesScheduleConfig),
+                  ),
+                error: pushError('invoicesSchedules'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
       );
 
-      const loadInvoices = rxMethod<{
-        request: InvoicesRequestDto;
-        page: number;
-        pageSize?: number;
-      }>(
+      const loadRegistrations = rxMethod<RegistrationsRequestDto>(
         pipe(
-          distinctUntilChanged(),
-          tap((request) => {
-            patchState(store, { _loading: store._loading() + 1 });
-            if (request.page === 0) {
-              patchState(store, removeAllEntities(invoiceConfig));
-            }
+          tap(() => {
+            incLoading();
+            patchState(store, removeAllEntities(registrationConfig));
           }),
-          switchMap((request) => {
-            return invoicesService
-              .listAllInvoices(request.request, request.page, request.pageSize)
-              .pipe(
-                tapResponse({
-                  next: (page) => {
-                    patchState(store, setEntities(page.results, invoiceConfig));
+          switchMap((request) =>
+            registrationsService.listRegistrations(request, 0).pipe(
+              expand((page) =>
+                page.currentPage < page.pageCount
+                  ? registrationsService.listRegistrations(
+                      request,
+                      page.currentPage + 1,
+                    )
+                  : EMPTY,
+              ),
+              tapResponse({
+                next: (page) =>
+                  patchState(
+                    store,
+                    setEntities(
+                      page.results.filter(
+                        (registration) =>
+                          registration.neverInvoice === request.neverInvoice &&
+                          !registration.inFixedAmount,
+                      ),
+                      registrationConfig,
+                    ),
+                  ),
+                error: pushError('registrations'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
+      );
 
-                    if (page.currentPage < page.pageCount) {
-                      loadInvoices({
-                        request: request.request,
-                        page: page.currentPage + 1,
-                        pageSize: request.pageSize,
-                      });
-                    }
-                  },
-                  error: (err) => console.error(err),
-                  finalize: () => {
-                    patchState(store, { _loading: store._loading() - 1 });
-                  },
-                })
-              );
-          })
-        )
+      const loadInvoices = rxMethod<InvoicesRequestDto>(
+        pipe(
+          tap(() => {
+            incLoading();
+            patchState(store, removeAllEntities(invoiceConfig));
+          }),
+          switchMap((request) =>
+            invoicesService.listAllInvoices(request, 0).pipe(
+              expand((page) =>
+                page.currentPage < page.pageCount
+                  ? invoicesService.listAllInvoices(
+                      request,
+                      page.currentPage + 1,
+                    )
+                  : EMPTY,
+              ),
+              tapResponse({
+                next: (page) =>
+                  patchState(store, setEntities(page.results, invoiceConfig)),
+                error: pushError('invoices'),
+                finalize: decLoading,
+              }),
+            ),
+          ),
+        ),
       );
 
       return {
@@ -526,16 +442,17 @@ export const RegistrationsOverviewStore = signalStore(
         loadCompanies,
         loadInvoicesSchedules,
         loadInvoices,
+        clearErrors,
       };
-    }
+    },
   ),
   withHooks({
     onInit(store) {
       store.loadHierarchy();
       store.loadCompanies();
-      store.loadUsers({ page: 0 });
-      store.loadRelations({ page: 0 });
-      store.loadInvoicesSchedules({ page: 0 });
+      store.loadUsers();
+      store.loadRelations();
+      store.loadInvoicesSchedules();
     },
-  })
+  }),
 );

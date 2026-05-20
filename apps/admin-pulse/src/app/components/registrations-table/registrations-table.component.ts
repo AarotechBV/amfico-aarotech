@@ -1,5 +1,10 @@
-import { Component, computed, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+} from '@angular/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Registration } from '../../models/registration.model';
 import { Hierarchy } from '../../models/hierarchy.model';
 import { RelationHeaderComponent } from '../relation-header/relation-header.component';
@@ -7,7 +12,8 @@ import { Relation } from '../../models/relation.model';
 
 @Component({
   selector: 'ap-registrations-table',
-  imports: [CommonModule, RelationHeaderComponent],
+  imports: [DatePipe, DecimalPipe, RelationHeaderComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './registrations-table.component.html',
   styleUrl: './registrations-table.component.scss',
 })
@@ -34,14 +40,14 @@ export class RegistrationsTableComponent {
                 id: '',
                 registrations: this.registrations().filter(
                   (registration) =>
-                    registration.priceListItemIdentifier === subCategory.id
+                    registration.priceListItemIdentifier === subCategory.id,
                 ),
               },
               ...subCategory.children.map((child) => ({
                 ...child,
                 registrations: this.registrations().filter(
                   (registration) =>
-                    registration.priceListItemIdentifier === child.id
+                    registration.priceListItemIdentifier === child.id,
                 ),
               })),
             ].filter((child) => child.registrations.length > 0),
@@ -54,8 +60,8 @@ export class RegistrationsTableComponent {
         duration: category.subCategories
           .map((subCat) =>
             subCat.children.map((ch) =>
-              ch.registrations.map((reg) => reg.duration)
-            )
+              ch.registrations.map((reg) => reg.duration),
+            ),
           )
           .flat()
           .flat()
@@ -63,22 +69,21 @@ export class RegistrationsTableComponent {
         quantity: category.subCategories
           .map((subCat) =>
             subCat.children.map((ch) =>
-              ch.registrations.map((reg) => reg.quantity)
-            )
+              ch.registrations.map((reg) => reg.quantity),
+            ),
           )
           .flat()
           .flat()
           .reduce((acc, cur) => acc + cur, 0),
         total: category.subCategories
           .map((subCat) => subCat.children.map((ch) => ch.registrations))
-
           .flat()
           .flat()
           .reduce(
             (acc, cur) =>
               acc +
               (cur.duration ? cur.duration / 60 : cur.quantity) * cur.unitPrice,
-            0
+            0,
           ),
         subCategories: category.subCategories.map((subCat) => ({
           ...subCat,
@@ -94,7 +99,7 @@ export class RegistrationsTableComponent {
                 acc +
                 (cur.duration ? cur.duration / 60 : cur.quantity) *
                   cur.unitPrice,
-              0
+              0,
             ),
         })),
       }));
@@ -103,21 +108,21 @@ export class RegistrationsTableComponent {
   total = computed(() => {
     return this.hierarchyWithRegistrations().reduce(
       (acc, cur) => acc + cur.total,
-      0
+      0,
     );
   });
 
   durationTotal = computed(() => {
     return this.hierarchyWithRegistrations().reduce(
       (acc, cur) => acc + cur.duration,
-      0
+      0,
     );
   });
 
   quantityTotal = computed(() => {
     return this.hierarchyWithRegistrations().reduce(
       (acc, cur) => acc + cur.quantity,
-      0
+      0,
     );
   });
 }

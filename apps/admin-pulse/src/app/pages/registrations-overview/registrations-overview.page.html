@@ -1,38 +1,45 @@
-<header xmlns="http://www.w3.org/1999/html">
+@if (errors().length) {
+<div class="errors" role="alert">
+  <strong>Er is iets misgegaan:</strong>
+  <ul>
+    @for (err of errors(); track $index) {
+    <li>{{ err }}</li>
+    }
+  </ul>
+  <button type="button" (click)="clearErrors()">Sluiten</button>
+</div>
+}
+
+<header>
   <h1>Registrations</h1>
-  <select
-    [ngModel]="this.selectedCompanyId()"
-    (ngModelChange)="selectCompany($event)"
-  >
-    <!--    <option [value]="null" [selected]="selectedCompanyId() === null">-->
-    <!--      select-->
-    <!--    </option>-->
-    @for(company of companies(); track company.id) {
-    <option [value]="company.id">{{company.name}}</option>
+  <select [value]="selectedCompanyId() ?? ''" (change)="selectCompany($event)">
+    @for (company of companies(); track company.id) {
+    <option [value]="company.id">{{ company.name }}</option>
     }
   </select>
 
   <input
     placeholder="Select date"
     type="date"
+    [value]="(registrationDateUntil() | date: 'yyyy-MM-dd') ?? ''"
     (change)="selectDate($event)"
-    [ngModel]="registrationDateUntil() | date :'yyyy-MM-dd'"
   />
 
   <button class="print" (click)="print()">Print</button>
 </header>
 
-@if(isLoading()){
-<small>(Loading)</small>} @else{ @for (relation of
-filteredRelationsWithRegistrations(); track relation.id) {
+@if (isLoading()) {
+<small>(Loading)</small>
+} @else { @for (relation of filteredRelationsWithRegistrations(); track
+relation.id) {
 <div class="relation">
-  @if(registrationDateUntil(); as date) {
-
+  @if (registrationDateUntil(); as date) {
   <ap-registrations-table
     [relation]="relation"
     [registrationDateUntil]="date"
     [registrations]="relation.registrations"
     [hierarchy]="hierarchy()"
-  />}
+  />
+  }
 </div>
 } }

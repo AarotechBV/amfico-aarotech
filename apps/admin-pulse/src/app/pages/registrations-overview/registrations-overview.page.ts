@@ -1,21 +1,21 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   computed,
   effect,
   inject,
   signal,
   untracked,
-  WritableSignal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { RegistrationsOverviewStore } from './registrations-overview.store';
 import { RegistrationsTableComponent } from '../../components/registrations-table/registrations-table.component';
-import { FormsModule } from '@angular/forms';
-import { subtractMonths } from '../../utils/substract-months.util';
+import { subtractMonths } from '../../utils/subtract-months.util';
 
 @Component({
   selector: 'ap-registrations-overview',
-  imports: [CommonModule, RegistrationsTableComponent, FormsModule],
+  imports: [DatePipe, RegistrationsTableComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './registrations-overview.page.html',
   styleUrl: './registrations-overview.page.scss',
   providers: [RegistrationsOverviewStore],
@@ -23,48 +23,19 @@ import { subtractMonths } from '../../utils/substract-months.util';
 export class RegistrationsOverviewPage {
   readonly #store = inject(RegistrationsOverviewStore);
 
-  registrationDateUntil: WritableSignal<Date | null> = signal<Date | null>(
-    null
-  );
-  invoiced: WritableSignal<boolean> = signal<boolean>(false);
-  selectedCompanyId: WritableSignal<string | null> = signal<string | null>(
-    null
-  );
-
-  // debug = effect(() => {
-  //   const schedules = this.#store.invoicesScheduleEntities();
-  //   const relations = this.#store.relationEntities();
-  //   const relationsWithRegistrations = this.#store.relationsWithRegistrations();
-  //   untracked(() => {
-  // console.log(relations.filter((r) => r.code === '5025'));
-  // console.log(
-  //   schedules.filter(
-  //     (s) =>
-  //       s.relationIdentifier === 'APR00510' ||
-  //       s.invoicedOnBehalfOf.includes('APR00510')
-  //   )
-  // );
-  //     console.log(
-  //       relationsWithRegistrations
-  //         // .filter((r) => r.code === '1007')
-  //         .map((r) =>
-  //           r.registrations.filter(
-  //             (registration) =>
-  //               registration.priceListItemCode ===
-  //                 '100997ee-e7a7-459c-e803-08dd746e671d' ||
-  //               registration.priceListItemIdentifier ===
-  //                 '100997ee-e7a7-459c-e803-08dd746e671d'
-  //           )
-  //         )
-  //         .filter((r) => r.length)
-  //     );
-  //   });
-  // });
+  registrationDateUntil = signal<Date | null>(null);
+  invoiced = signal(false);
+  selectedCompanyId = signal<string | null>(null);
 
   relationsWithRegistrations = this.#store.relationsWithRegistrations;
   companies = this.#store.companyEntities;
   hierarchy = this.#store.hierarchy;
   isLoading = this.#store.isLoading;
+  errors = this.#store.errors;
+
+  clearErrors() {
+    this.#store.clearErrors();
+  }
 
   selectFirstCompany = effect(() => {
     const companies = this.companies();
@@ -80,11 +51,10 @@ export class RegistrationsOverviewPage {
     const relationsWithRegistrations = this.relationsWithRegistrations();
     if (companyId) {
       return relationsWithRegistrations.filter(
-        (relation) => relation.companyId === companyId
+        (relation) => relation.companyId === companyId,
       );
-    } else {
-      return [];
     }
+    return [];
   });
 
   loadRegistrations = effect(() => {
@@ -93,20 +63,14 @@ export class RegistrationsOverviewPage {
     untracked(() => {
       if (registrationDateUntil) {
         this.#store.loadRegistrations({
-          request: {
-            neverInvoice: false,
-            invoiced,
-            registrationDateUntil: dateToString(registrationDateUntil),
-          },
-          page: 0,
+          neverInvoice: false,
+          invoiced,
+          registrationDateUntil: dateToString(registrationDateUntil),
         });
         this.#store.loadInvoices({
-          request: {
-            invoiceDateFrom: dateToString(
-              subtractMonths(registrationDateUntil, 3)
-            ),
-          },
-          page: 0,
+          invoiceDateFrom: dateToString(
+            subtractMonths(registrationDateUntil, 3),
+          ),
         });
       }
     });
@@ -116,26 +80,20 @@ export class RegistrationsOverviewPage {
     window.print();
   }
 
-  selectDate(event: any) {
-    this.registrationDateUntil.set(event.target.valueAsDate || null);
+  selectDate(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.registrationDateUntil.set(input.valueAsDate);
   }
 
-  selectCompany(companyId: any) {
-    console.log('select', companyId);
-    this.selectedCompanyId.set(companyId);
+  selectCompany(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    this.selectedCompanyId.set(select.value || null);
   }
 }
 
 const dateToString = (date: Date): string => {
-  let day = `${date.getDate()}`;
-  if (day.length < 2) {
-    day = `0${day}`;
-  }
-  let month = `${date.getMonth() + 1}`;
-  if (month.length < 2) {
-    month = `0${month}`;
-  }
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const year = `${date.getFullYear()}`;
-  const stringDate = `${day}${month}${year}`;
-  return stringDate;
+  return `${day}${month}${year}`;
 };

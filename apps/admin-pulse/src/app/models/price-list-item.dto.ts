@@ -1,9 +1,9 @@
 export interface PriceListItemDto {
   id: string;
-  code: any;
+  code: unknown;
   name: string;
   type: number;
   billable: boolean;
   inFixedAmount: boolean;
-  purchasePrice: any;
+  purchasePrice: unknown;
 }
