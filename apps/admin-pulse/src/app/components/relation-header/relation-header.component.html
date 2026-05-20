@@ -1,9 +1,8 @@
 <section class="left">
   <div>
     {{ relation().code || relation().uniqueIdentifier }}
-    @if(relation().relationGroupName === 'EZ zonder tijdsregistratie') {
-    <small class="ez">Ez zonder tijdsregistratie</small>
-
+    @if (relation().relationGroupName === 'EZ zonder tijdsregistratie') {
+      <small class="ez">Ez zonder tijdsregistratie</small>
     }
   </div>
   <span class="company">
@@ -17,6 +16,6 @@
 </section>
 <section class="right">
   <span>
-    Prestaties tot en met: {{ registrationDateUntil() | date : 'dd/MM/yyyy' }}
+    Prestaties tot en met: {{ registrationDateUntil() | date: 'dd/MM/yyyy' }}
   </span>
 </section>

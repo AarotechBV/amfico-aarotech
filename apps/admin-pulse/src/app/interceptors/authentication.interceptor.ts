@@ -5,7 +5,7 @@ import { TokenService } from '../services/token.service';
 
 export const authenticationInterceptor = (
   req: HttpRequest<unknown>,
-  next: HttpHandlerFn
+  next: HttpHandlerFn,
 ): Observable<HttpEvent<unknown>> => {
   const tokenService = inject(TokenService);
   const apiKey = tokenService.token();
