@@ -11,6 +11,7 @@ import { DatePipe } from '@angular/common';
 import { RegistrationsOverviewStore } from './registrations-overview.store';
 import { RegistrationsTableComponent } from '../../components/registrations-table/registrations-table.component';
 import { subtractMonths } from '../../utils/subtract-months.util';
+import { endOfLastMonth } from '../../utils/end-of-last-month.util';
 
 @Component({
   selector: 'ap-registrations-overview',
@@ -23,7 +24,7 @@ import { subtractMonths } from '../../utils/subtract-months.util';
 export class RegistrationsOverviewPage {
   readonly #store = inject(RegistrationsOverviewStore);
 
-  registrationDateUntil = signal<Date | null>(null);
+  registrationDateUntil = signal<Date | null>(endOfLastMonth());
   invoiced = signal(false);
   selectedCompanyId = signal<string | null>(null);
 
