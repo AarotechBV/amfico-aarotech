@@ -1,4 +1,7 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  provideZonelessChangeDetection,
+} from '@angular/core';
 import {
   provideRouter,
   withComponentInputBinding,
@@ -14,7 +17,7 @@ import { API_BASE_URL } from './api-base-url.token';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideZonelessChangeDetection(),
     provideRouter(appRoutes, withHashLocation(), withComponentInputBinding()),
     provideHttpClient(withInterceptors([authenticationInterceptor])),
     provideAnimationsAsync(),

@@ -10,6 +10,15 @@ import { Hierarchy } from '../../models/hierarchy.model';
 import { RelationHeaderComponent } from '../relation-header/relation-header.component';
 import { Relation } from '../../models/relation.model';
 
+const sumBy = <T>(items: T[], pick: (item: T) => number): number =>
+  items.reduce((acc, item) => acc + pick(item), 0);
+
+const durationHours = (reg: Registration) => reg.duration / 60;
+const billableValue = (reg: Registration) =>
+  reg.duration ? durationHours(reg) : reg.quantity;
+const billableAmount = (reg: Registration) =>
+  billableValue(reg) * reg.unitPrice;
+
 @Component({
   selector: 'ap-registrations-table',
   imports: [DatePipe, DecimalPipe, RelationHeaderComponent],
@@ -19,110 +28,77 @@ import { Relation } from '../../models/relation.model';
 })
 export class RegistrationsTableComponent {
   registrations = input<Registration[]>([]);
-
   hierarchy = input<Hierarchy>([]);
-
   relation = input.required<Relation>();
-
   registrationDateUntil = input.required<Date>();
 
+  #registrationsByItemId = computed(() => {
+    const byId = new Map<string, Registration[]>();
+    for (const reg of this.registrations()) {
+      const list = byId.get(reg.priceListItemIdentifier);
+      if (list) {
+        list.push(reg);
+      } else {
+        byId.set(reg.priceListItemIdentifier, [reg]);
+      }
+    }
+    return byId;
+  });
+
   hierarchyWithRegistrations = computed(() => {
+    const byId = this.#registrationsByItemId();
+
     return this.hierarchy()
-      .map((category) => ({
-        ...category,
-        subCategories: category.subCategories
-          .map((subCategory) => ({
-            ...subCategory,
-            subCategory: subCategory.subCategory || category.category,
-            children: [
+      .map((category) => {
+        const subCategories = category.subCategories
+          .map((subCategory) => {
+            const subLabel = subCategory.subCategory || category.category;
+            const children = [
               {
-                child: subCategory.subCategory || category.category,
+                child: subLabel,
                 id: '',
-                registrations: this.registrations().filter(
-                  (registration) =>
-                    registration.priceListItemIdentifier === subCategory.id,
-                ),
+                registrations: byId.get(subCategory.id) ?? [],
               },
               ...subCategory.children.map((child) => ({
                 ...child,
-                registrations: this.registrations().filter(
-                  (registration) =>
-                    registration.priceListItemIdentifier === child.id,
-                ),
+                registrations: byId.get(child.id) ?? [],
               })),
-            ].filter((child) => child.registrations.length > 0),
-          }))
-          .filter((subCategory) => subCategory.children.length > 0),
-      }))
-      .filter((category) => category.subCategories.length > 0)
-      .map((category) => ({
-        ...category,
-        duration: category.subCategories
-          .map((subCat) =>
-            subCat.children.map((ch) =>
-              ch.registrations.map((reg) => reg.duration),
-            ),
-          )
-          .flat()
-          .flat()
-          .reduce((acc, cur) => acc + cur / 60, 0),
-        quantity: category.subCategories
-          .map((subCat) =>
-            subCat.children.map((ch) =>
-              ch.registrations.map((reg) => reg.quantity),
-            ),
-          )
-          .flat()
-          .flat()
-          .reduce((acc, cur) => acc + cur, 0),
-        total: category.subCategories
-          .map((subCat) => subCat.children.map((ch) => ch.registrations))
-          .flat()
-          .flat()
-          .reduce(
-            (acc, cur) =>
-              acc +
-              (cur.duration ? cur.duration / 60 : cur.quantity) * cur.unitPrice,
-            0,
-          ),
-        subCategories: category.subCategories.map((subCat) => ({
-          ...subCat,
-          duration: subCat.children
-            .map((ch) => ch.registrations.map((reg) => reg.duration))
-            .flat()
-            .reduce((acc, cur) => acc + cur / 60, 0),
-          total: subCat.children
-            .map((ch) => ch.registrations)
-            .flat()
-            .reduce(
-              (acc, cur) =>
-                acc +
-                (cur.duration ? cur.duration / 60 : cur.quantity) *
-                  cur.unitPrice,
-              0,
-            ),
-        })),
-      }));
+            ].filter((c) => c.registrations.length > 0);
+
+            const subRegs = children.flatMap((c) => c.registrations);
+            return {
+              ...subCategory,
+              subCategory: subLabel,
+              children,
+              duration: sumBy(subRegs, durationHours),
+              total: sumBy(subRegs, billableAmount),
+            };
+          })
+          .filter((s) => s.children.length > 0);
+
+        const catRegs = subCategories.flatMap((s) =>
+          s.children.flatMap((c) => c.registrations),
+        );
+        return {
+          ...category,
+          subCategories,
+          duration: sumBy(catRegs, durationHours),
+          quantity: sumBy(catRegs, (r) => r.quantity),
+          total: sumBy(catRegs, billableAmount),
+        };
+      })
+      .filter((c) => c.subCategories.length > 0);
   });
 
-  total = computed(() => {
-    return this.hierarchyWithRegistrations().reduce(
-      (acc, cur) => acc + cur.total,
-      0,
-    );
-  });
+  total = computed(() =>
+    sumBy(this.hierarchyWithRegistrations(), (c) => c.total),
+  );
 
-  durationTotal = computed(() => {
-    return this.hierarchyWithRegistrations().reduce(
-      (acc, cur) => acc + cur.duration,
-      0,
-    );
-  });
+  durationTotal = computed(() =>
+    sumBy(this.hierarchyWithRegistrations(), (c) => c.duration),
+  );
 
-  quantityTotal = computed(() => {
-    return this.hierarchyWithRegistrations().reduce(
-      (acc, cur) => acc + cur.quantity,
-      0,
-    );
-  });
+  quantityTotal = computed(() =>
+    sumBy(this.hierarchyWithRegistrations(), (c) => c.quantity),
+  );
 }

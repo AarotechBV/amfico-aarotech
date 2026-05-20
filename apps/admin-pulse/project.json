@@ -17,7 +17,7 @@
         },
         "index": "apps/admin-pulse/src/index.html",
         "browser": "apps/admin-pulse/src/main.ts",
-        "polyfills": ["zone.js"],
+        "polyfills": [],
         "tsConfig": "apps/admin-pulse/tsconfig.app.json",
         "inlineStyleLanguage": "scss",
         "assets": [
