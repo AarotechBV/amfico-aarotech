@@ -1,45 +1,60 @@
 @if (errors().length) {
-<div class="errors" role="alert">
-  <strong>Er is iets misgegaan:</strong>
-  <ul>
-    @for (err of errors(); track $index) {
-    <li>{{ err }}</li>
-    }
-  </ul>
-  <button type="button" (click)="clearErrors()">Sluiten</button>
-</div>
+  <div class="errors" role="alert">
+    <strong>Er ging iets mis</strong>
+    <ul>
+      @for (err of errors(); track $index) {
+        <li>{{ err }}</li>
+      }
+    </ul>
+    <button type="button" (click)="clearErrors()">Sluiten</button>
+  </div>
 }
 
-<header>
-  <h1>Registrations</h1>
-  <select [value]="selectedCompanyId() ?? ''" (change)="selectCompany($event)">
-    @for (company of companies(); track company.id) {
-    <option [value]="company.id">{{ company.name }}</option>
+<section class="page">
+  <header class="page-head">
+    <h1>Registraties</h1>
+    <div class="controls">
+      <label class="field">
+        <span class="label">Bedrijf</span>
+        <select
+          [value]="selectedCompanyId() ?? ''"
+          (change)="selectCompany($event)"
+          [disabled]="isLoadingCompanies()"
+        >
+          @for (company of companies(); track company.id) {
+            <option [value]="company.id">{{ company.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">Prestaties tot en met</span>
+        <input
+          type="date"
+          [value]="(registrationDateUntil() | date: 'yyyy-MM-dd') ?? ''"
+          (change)="selectDate($event)"
+        />
+      </label>
+    </div>
+  </header>
+
+  <section class="status-card" [attr.data-state]="status()">
+    @switch (status()) {
+      @case ('loading') {
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="status-text">{{ statusMessage() }}</p>
+      }
+      @case ('empty') {
+        <div class="badge badge--empty" aria-hidden="true">∅</div>
+        <p class="status-text">{{ statusMessage() }}</p>
+      }
+      @case ('ready') {
+        <div class="badge badge--ready" aria-hidden="true">PDF</div>
+        <p class="status-text">{{ statusMessage() }}</p>
+        <button type="button" class="btn-accent" (click)="download()">
+          Download PDF
+        </button>
+      }
     }
-  </select>
-
-  <input
-    placeholder="Select date"
-    type="date"
-    [value]="(registrationDateUntil() | date: 'yyyy-MM-dd') ?? ''"
-    (change)="selectDate($event)"
-  />
-
-  <button class="print" (click)="print()">Print</button>
-</header>
-
-@if (isLoading()) {
-<small>(Loading)</small>
-} @else { @for (relation of filteredRelationsWithRegistrations(); track
-relation.id) {
-<div class="relation">
-  @if (registrationDateUntil(); as date) {
-  <ap-registrations-table
-    [relation]="relation"
-    [registrationDateUntil]="date"
-    [registrations]="relation.registrations"
-    [hierarchy]="hierarchy()"
-  />
-  }
-</div>
-} }
+  </section>
+</section>

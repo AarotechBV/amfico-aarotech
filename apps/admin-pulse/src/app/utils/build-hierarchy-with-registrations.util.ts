@@ -1,5 +1,5 @@
-import { Hierarchy } from '../models/hierarchy.model';
-import { Registration } from '../models/registration.model';
+import { Hierarchy } from '@amfico@aarotech/admin-pulse-shared';
+import { Registration } from '@amfico@aarotech/admin-pulse-shared';
 
 const sumBy = <T>(items: T[], pick: (item: T) => number): number =>
   items.reduce((acc, item) => acc + pick(item), 0);

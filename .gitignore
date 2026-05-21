@@ -38,8 +38,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
-# Reference PDFs (not source)
+# Reference material (not source)
 /admin-pulse.pdf
+/adminpulse-openapi.json
 
 .nx/cache
 .nx/workspace-data

@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://api.adminpulse.be',
+  apiBaseUrl: 'http://localhost:3000/api',
 };

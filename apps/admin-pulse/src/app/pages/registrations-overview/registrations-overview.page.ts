@@ -8,36 +8,60 @@ import {
   untracked,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RegistrationsOverviewStore } from './registrations-overview.store';
-import { RegistrationsTableComponent } from '../../components/registrations-table/registrations-table.component';
-import { subtractMonths } from '../../utils/subtract-months.util';
+import { CompanyDto } from '@amfico@aarotech/admin-pulse-shared';
+import type { TCreatedPdf } from 'pdfmake/interfaces';
 import { endOfLastMonth } from '../../utils/end-of-last-month.util';
 import { RegistrationsPdfService } from '../../services/registrations-pdf.service';
+import { CompaniesService } from '../../services/companies.service';
+import {
+  OverviewService,
+  RegistrationsOverviewResponse,
+} from '../../services/overview.service';
 
 @Component({
   selector: 'ap-registrations-overview',
-  imports: [DatePipe, RegistrationsTableComponent],
+  imports: [DatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './registrations-overview.page.html',
   styleUrl: './registrations-overview.page.scss',
-  providers: [RegistrationsOverviewStore],
 })
 export class RegistrationsOverviewPage {
-  readonly #store = inject(RegistrationsOverviewStore);
+  readonly #companiesService = inject(CompaniesService);
+  readonly #overview = inject(OverviewService);
   readonly #pdfService = inject(RegistrationsPdfService);
 
   registrationDateUntil = signal<Date | null>(endOfLastMonth());
   invoiced = signal(false);
   selectedCompanyId = signal<string | null>(null);
 
-  relationsWithRegistrations = this.#store.relationsWithRegistrations;
-  companies = this.#store.companyEntities;
-  hierarchy = this.#store.hierarchy;
-  isLoading = this.#store.isLoading;
-  errors = this.#store.errors;
+  companies = signal<CompanyDto[]>([]);
+  response = signal<RegistrationsOverviewResponse | null>(null);
+  pdf = signal<TCreatedPdf | null>(null);
 
-  clearErrors() {
-    this.#store.clearErrors();
+  isLoadingCompanies = signal(false);
+  isLoadingOverview = signal(false);
+  errors = signal<string[]>([]);
+
+  status = computed<'loading' | 'empty' | 'ready'>(() => {
+    if (this.isLoadingCompanies() || this.isLoadingOverview() || !this.pdf()) {
+      return 'loading';
+    }
+    if (!this.response()?.relations.length) return 'empty';
+    return 'ready';
+  });
+
+  statusMessage = computed(() => {
+    if (this.isLoadingCompanies()) return 'Bedrijven ophalen…';
+    if (this.isLoadingOverview()) return 'Registraties ophalen…';
+    if (!this.pdf()) return 'PDF aan het opbouwen…';
+    if (!this.response()?.relations.length) {
+      return 'Geen registraties gevonden voor deze selectie.';
+    }
+    return 'PDF is klaar om te downloaden.';
+  });
+
+  constructor() {
+    this.#loadCompanies();
   }
 
   selectFirstCompany = effect(() => {
@@ -49,44 +73,79 @@ export class RegistrationsOverviewPage {
     });
   });
 
-  filteredRelationsWithRegistrations = computed(() => {
-    const companyId = this.selectedCompanyId();
-    const relationsWithRegistrations = this.relationsWithRegistrations();
-    if (companyId) {
-      return relationsWithRegistrations.filter(
-        (relation) => relation.companyId === companyId,
-      );
-    }
-    return [];
-  });
-
-  loadRegistrations = effect(() => {
+  loadOverview = effect(() => {
     const invoiced = this.invoiced();
-    const registrationDateUntil = this.registrationDateUntil();
+    const date = this.registrationDateUntil();
+    const companyId = this.selectedCompanyId();
     untracked(() => {
-      if (registrationDateUntil) {
-        this.#store.loadRegistrations({
-          neverInvoice: false,
+      if (!date || !companyId) return;
+      this.pdf.set(null);
+      this.response.set(null);
+      this.isLoadingOverview.set(true);
+      this.#overview
+        .getRegistrationsOverview({
+          registrationDateUntil: toIsoDate(date),
+          companyId,
           invoiced,
-          registrationDateUntil: dateToString(registrationDateUntil),
+        })
+        .subscribe({
+          next: (response) => {
+            this.response.set(response);
+            this.isLoadingOverview.set(false);
+            this.#buildPdf(response, date);
+          },
+          error: (err) => {
+            this.#pushError('overview', err);
+            this.isLoadingOverview.set(false);
+          },
         });
-        this.#store.loadInvoices({
-          invoiceDateFrom: dateToString(
-            subtractMonths(registrationDateUntil, 3),
-          ),
-        });
-      }
     });
   });
 
-  print() {
-    const date = this.registrationDateUntil();
-    if (!date) return;
-    this.#pdfService.generate(
-      this.filteredRelationsWithRegistrations(),
-      this.hierarchy(),
-      date,
-    );
+  #loadCompanies() {
+    this.isLoadingCompanies.set(true);
+    this.#companiesService.listAll().subscribe({
+      next: (companies) => {
+        this.companies.set(companies);
+        this.isLoadingCompanies.set(false);
+      },
+      error: (err) => {
+        this.#pushError('companies', err);
+        this.isLoadingCompanies.set(false);
+      },
+    });
+  }
+
+  #buildPdf(response: RegistrationsOverviewResponse, date: Date) {
+    if (!response.relations.length) {
+      this.pdf.set(null);
+      return;
+    }
+    try {
+      this.pdf.set(
+        this.#pdfService.build(response.relations, response.hierarchy, date),
+      );
+    } catch (err) {
+      this.#pushError('pdf', err);
+    }
+  }
+
+  #pushError(scope: string, err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : String(err);
+    this.errors.update((errs) => [...errs, `${scope}: ${message}`]);
+  }
+
+  clearErrors() {
+    this.errors.set([]);
+  }
+
+  download() {
+    this.pdf()?.download('admin-pulse.pdf');
   }
 
   selectDate(event: Event) {
@@ -100,9 +159,9 @@ export class RegistrationsOverviewPage {
   }
 }
 
-const dateToString = (date: Date): string => {
-  const day = `${date.getDate()}`.padStart(2, '0');
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const year = `${date.getFullYear()}`;
-  return `${day}${month}${year}`;
+const toIsoDate = (date: Date): string => {
+  const yyyy = date.getFullYear();
+  const mm = `${date.getMonth() + 1}`.padStart(2, '0');
+  const dd = `${date.getDate()}`.padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };

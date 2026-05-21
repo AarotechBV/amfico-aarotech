@@ -59,6 +59,9 @@
     },
     "serve": {
       "executor": "@angular-devkit/build-angular:dev-server",
+      "options": {
+        "hmr": true
+      },
       "configurations": {
         "production": {
           "buildTarget": "admin-pulse:build:production"

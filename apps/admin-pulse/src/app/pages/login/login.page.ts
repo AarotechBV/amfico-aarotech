@@ -18,14 +18,20 @@ import { TokenService } from '../../services/token.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main>
-      <form [formGroup]="form" (ngSubmit)="submit()">
-        <h1>AdminPulse token</h1>
-        <p>
-          Geef je AdminPulse API-token in om verder te gaan. Het token wordt
-          enkel lokaal in deze browser bewaard.
+      <div class="ribbon" aria-hidden="true"></div>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="brand">
+          <span class="wordmark">amfico</span>
+          <span class="suffix">Admin Pulse</span>
+        </div>
+        <p class="eyebrow">Inloggen</p>
+        <h1>Geef uw AdminPulse-token in</h1>
+        <p class="lead">
+          Het token wordt enkel lokaal in deze browser bewaard. We delen het
+          niet met derden.
         </p>
-        <label>
-          <span>Token</span>
+        <label class="field">
+          <span class="label">Token</span>
           <input
             type="password"
             autocomplete="off"
@@ -36,7 +42,7 @@ import { TokenService } from '../../services/token.service';
         @if (submitted() && form.controls.token.invalid) {
           <small class="error">Token mag niet leeg zijn.</small>
         }
-        <button type="submit">Inloggen</button>
+        <button type="submit" class="btn-primary">Inloggen</button>
       </form>
     </main>
   `,
@@ -45,55 +51,120 @@ import { TokenService } from '../../services/token.service';
       display: grid;
       place-items: center;
       min-height: 100vh;
-      padding: 24px;
+      padding: var(--space-5);
+      background: var(--color-bg-soft);
     }
+
     main {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
     }
+
+    .ribbon {
+      height: 6px;
+      background: var(--amf-gradient);
+    }
+
     form {
       display: grid;
-      gap: 16px;
-      padding: 24px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #fff;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      gap: var(--space-4);
+      padding: var(--space-7) var(--space-6) var(--space-6);
     }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    .wordmark {
+      font-family: var(--font-display);
+      font-weight: var(--fw-bold);
+      font-size: 28px;
+      letter-spacing: -1px;
+      color: var(--color-primary);
+    }
+
+    .suffix {
+      font-size: var(--fs-sm);
+      color: var(--color-fg-muted);
+      font-weight: var(--fw-medium);
+    }
+
     h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: var(--fs-xl);
     }
-    p {
+
+    .lead {
       margin: 0;
-      color: #555;
-      font-size: 14px;
+      color: var(--color-fg-muted);
+      font-size: var(--fs-base);
     }
-    label {
+
+    .field {
       display: grid;
-      gap: 4px;
-      font-size: 14px;
+      gap: var(--space-2);
     }
+
+    .label {
+      font-size: var(--fs-xs);
+      font-weight: var(--fw-semibold);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+
     input {
-      padding: 8px 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font: inherit;
+      padding: 11px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font-family: var(--font-sans);
+      font-size: var(--fs-sm);
+      color: var(--color-fg);
+      background: var(--color-bg);
+      transition: border-color var(--dur-fast) var(--ease-out),
+        box-shadow var(--dur-fast) var(--ease-out);
     }
-    button {
-      padding: 10px;
-      background: #1f6feb;
-      color: white;
-      border: none;
-      border-radius: 4px;
+
+    input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(46, 32, 129, 0.15);
+    }
+
+    .btn-primary {
+      margin-top: var(--space-2);
+      background: var(--color-primary);
+      color: #fff;
+      border: 0;
+      padding: 12px 22px;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-sans);
+      font-weight: var(--fw-semibold);
+      font-size: var(--fs-sm);
       cursor: pointer;
-      font: inherit;
+      transition: background-color var(--dur-base) var(--ease-out),
+        transform var(--dur-fast) var(--ease-out);
     }
-    button:hover {
-      background: #1858c4;
+
+    .btn-primary:hover {
+      background: var(--color-primary-hover);
     }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
     .error {
-      color: #c0392b;
+      color: var(--color-danger);
+      font-size: var(--fs-sm);
     }
   `,
 })

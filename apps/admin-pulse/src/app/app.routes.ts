@@ -2,6 +2,8 @@ import { inject } from '@angular/core';
 import { CanMatchFn, Route, Router } from '@angular/router';
 import { TokenService } from './services/token.service';
 
+const DEFAULT_AUTHENTICATED_ROUTE = '/rapporten/registraties';
+
 const requireToken: CanMatchFn = () => {
   const tokenService = inject(TokenService);
   if (tokenService.token()) return true;
@@ -11,7 +13,7 @@ const requireToken: CanMatchFn = () => {
 const requireNoToken: CanMatchFn = () => {
   const tokenService = inject(TokenService);
   if (!tokenService.token()) return true;
-  return inject(Router).parseUrl('/registrations');
+  return inject(Router).parseUrl(DEFAULT_AUTHENTICATED_ROUTE);
 };
 
 export const appRoutes: Route[] = [
@@ -22,12 +24,24 @@ export const appRoutes: Route[] = [
       import('./pages/login/login.page').then((p) => p.LoginPage),
   },
   {
-    path: 'registrations',
+    path: 'rapporten',
     canMatch: [requireToken],
-    loadComponent: () =>
-      import('./pages/registrations-overview/registrations-overview.page').then(
-        (p) => p.RegistrationsOverviewPage,
-      ),
+    children: [
+      {
+        path: 'registraties',
+        loadComponent: () =>
+          import(
+            './pages/registrations-overview/registrations-overview.page'
+          ).then((p) => p.RegistrationsOverviewPage),
+      },
+      { path: '', pathMatch: 'full', redirectTo: 'registraties' },
+    ],
   },
-  { path: '', pathMatch: 'full', redirectTo: 'registrations' },
+  // Keep the legacy URL working for anyone with a bookmark
+  { path: 'registrations', redirectTo: DEFAULT_AUTHENTICATED_ROUTE },
+  {
+    path: '',
+    pathMatch: 'full',
+    redirectTo: DEFAULT_AUTHENTICATED_ROUTE,
+  },
 ];

@@ -6,18 +6,25 @@ import type {
   ContentTable,
   CustomTableLayout,
   TableCell,
+  TCreatedPdf,
   TDocumentDefinitions,
 } from 'pdfmake/interfaces';
-import { Hierarchy } from '../models/hierarchy.model';
-import { Relation } from '../models/relation.model';
+import { Hierarchy, Relation } from '@amfico@aarotech/admin-pulse-shared';
 import {
   buildHierarchyWithRegistrations,
   HierarchyCategoryWithRegistrations,
 } from '../utils/build-hierarchy-with-registrations.util';
-import { EZ_RELATION_GROUP } from '../constants';
 
-const HEADER_BG = '#B6DEEB';
-const SUBCATEGORY_COLOR = '#7F7F7F';
+const EZ_RELATION_GROUP = 'EZ zonder tijdsregistratie';
+
+// Amfico brand tokens (mirrored from the design system's
+// colors_and_type.css so the PDF reads as the same brand).
+const HEADER_BG = '#EFEAF5'; // light tint of amf-blauw-paars
+const HEADER_TEXT = '#2E2081'; // amf-blauw-paars
+const MUTED_COLOR = '#6E6880'; // amf-slate
+const SUBCATEGORY_COLOR = '#4F2B74'; // amf-diep-paars
+const TEXT_COLOR = '#1A1330'; // amf-ink
+const BORDER_COLOR = '#E5E1EC'; // amf-fog
 
 const MAIN_TABLE_WIDTHS = [240, 70, 65, 50, 50, 60, '*'] as const;
 const SUMMARY_TOTALS_WIDTHS = [200, 60, 60] as const;
@@ -32,11 +39,16 @@ const installVfsOnce = () => {
 
 @Injectable({ providedIn: 'root' })
 export class RegistrationsPdfService {
-  generate(
+  /**
+   * Builds the PDF document but does not trigger a download. Callers receive
+   * a TCreatedPdf and can decide when to `.download()`, `.open()`, or pull
+   * a Blob via `.getBlob()`.
+   */
+  build(
     relations: Relation[],
     hierarchy: Hierarchy,
     registrationDateUntil: Date,
-  ): void {
+  ): TCreatedPdf {
     installVfsOnce();
     const dateLabel = formatDateDDMMYYYY(registrationDateUntil);
     const content: Content[] = relations.flatMap((relation, index) =>
@@ -51,7 +63,7 @@ export class RegistrationsPdfService {
       content,
     };
 
-    pdfMake.createPdf(docDefinition).download('admin-pulse.pdf');
+    return pdfMake.createPdf(docDefinition);
   }
 }
 
@@ -102,16 +114,16 @@ const relationHeader = (relation: Relation, dateLabel: string): Content => {
   const isEZ = relation.relationGroupName === EZ_RELATION_GROUP;
 
   const leftStack: Content[] = [
-    { text: codeOrId, fontSize: 16 },
+    { text: codeOrId, fontSize: 16, color: HEADER_TEXT, bold: true },
     ...(subline
-      ? [{ text: subline, fontSize: 8, color: SUBCATEGORY_COLOR }]
+      ? [{ text: subline, fontSize: 8, color: MUTED_COLOR }]
       : []),
     ...(isEZ
       ? [
           {
             text: 'Ez zonder tijdsregistratie',
             fontSize: 8,
-            color: SUBCATEGORY_COLOR,
+            color: MUTED_COLOR,
           },
         ]
       : []),
@@ -123,11 +135,12 @@ const relationHeader = (relation: Relation, dateLabel: string): Content => {
       bold: true,
       fontSize: 13,
       alignment: 'center',
+      color: TEXT_COLOR,
     },
     {
       text: relation.company?.name ?? '',
       fontSize: 8,
-      color: SUBCATEGORY_COLOR,
+      color: MUTED_COLOR,
       alignment: 'center',
     },
   ];
@@ -142,6 +155,7 @@ const relationHeader = (relation: Relation, dateLabel: string): Content => {
           {
             text: `Prestaties tot en met: ${dateLabel}`,
             alignment: 'right',
+            color: TEXT_COLOR,
             border: [false, true, true, true],
             margin: [0, 6, 0, 0],
           },
@@ -149,6 +163,8 @@ const relationHeader = (relation: Relation, dateLabel: string): Content => {
       ],
     },
     layout: {
+      hLineColor: () => BORDER_COLOR,
+      vLineColor: () => BORDER_COLOR,
       paddingLeft: () => 8,
       paddingRight: () => 8,
       paddingTop: () => 6,
@@ -161,25 +177,35 @@ const mainTable = (
   categories: HierarchyCategoryWithRegistrations[],
 ): Content => {
   const headerRow: TableCell[] = [
-    { text: 'Categorie en sub categorie', bold: true },
-    { text: 'Medewerker', bold: true },
-    { text: 'Datum', bold: true },
-    { text: 'Tijd/aantal', bold: true, alignment: 'right' },
-    { text: 'Tarief', bold: true, alignment: 'right' },
-    { text: 'Ereloon', bold: true, alignment: 'right' },
-    { text: 'Interne opmerking', bold: true },
+    { text: 'Categorie en sub categorie', bold: true, color: HEADER_TEXT },
+    { text: 'Medewerker', bold: true, color: HEADER_TEXT },
+    { text: 'Datum', bold: true, color: HEADER_TEXT },
+    { text: 'Tijd/aantal', bold: true, alignment: 'right', color: HEADER_TEXT },
+    { text: 'Tarief', bold: true, alignment: 'right', color: HEADER_TEXT },
+    { text: 'Ereloon', bold: true, alignment: 'right', color: HEADER_TEXT },
+    { text: 'Interne opmerking', bold: true, color: HEADER_TEXT },
   ];
 
   const body: TableCell[][] = [headerRow];
 
   for (const category of categories) {
     body.push([
-      { text: category.category, bold: true, colSpan: 3 },
+      { text: category.category, bold: true, colSpan: 3, color: TEXT_COLOR },
       {},
       {},
-      { text: formatDecimal(category.duration), bold: true, alignment: 'right' },
+      {
+        text: formatDecimal(category.duration),
+        bold: true,
+        alignment: 'right',
+        color: TEXT_COLOR,
+      },
       {},
-      { text: formatDecimal(category.total), bold: true, alignment: 'right' },
+      {
+        text: formatDecimal(category.total),
+        bold: true,
+        alignment: 'right',
+        color: TEXT_COLOR,
+      },
       {},
     ]);
 
@@ -240,9 +266,9 @@ const summarySection = (
 ): Content => {
   const totalsBody: TableCell[][] = [
     [
-      { text: 'Categorie', bold: true },
-      { text: 'Tijd', bold: true, alignment: 'right' },
-      { text: 'Ereloon', bold: true, alignment: 'right' },
+      { text: 'Categorie', bold: true, color: HEADER_TEXT },
+      { text: 'Tijd', bold: true, alignment: 'right', color: HEADER_TEXT },
+      { text: 'Ereloon', bold: true, alignment: 'right', color: HEADER_TEXT },
     ],
     ...categories.map((c): TableCell[] => [
       { text: c.category },
@@ -269,18 +295,14 @@ const summarySection = (
 
   const invoicesBody: TableCell[][] = [
     [
-      { text: 'Nummer', bold: true },
-      { text: 'Vervaldatum', bold: true },
-      { text: 'Bedrag', bold: true, alignment: 'right' },
-      { text: 'Betaald', bold: true },
+      { text: 'Nummer', bold: true, color: HEADER_TEXT },
+      { text: 'Vervaldatum', bold: true, color: HEADER_TEXT },
+      { text: 'Bedrag', bold: true, alignment: 'right', color: HEADER_TEXT },
+      { text: 'Betaald', bold: true, color: HEADER_TEXT },
     ],
     ...(relation.invoices ?? []).map((invoice): TableCell[] => [
       { text: invoice.invoiceNumber },
-      {
-        text: invoice.dueDateAsDate
-          ? formatDateDDMMYYYY(invoice.dueDateAsDate)
-          : '',
-      },
+      { text: formatRegistrationDate(invoice.dueDate) },
       { text: formatDecimal(invoice.originalAmount), alignment: 'right' },
       { text: invoice.paid ? 'Ja' : 'Nee' },
     ]),
@@ -326,10 +348,14 @@ const formatDateDDMMYYYY = (date: Date): string => {
   return `${dd}/${mm}/${date.getFullYear()}`;
 };
 
-const formatRegistrationDate = (ddMMyyyy: string): string =>
-  ddMMyyyy.length === 8
+const formatRegistrationDate = (
+  ddMMyyyy: string | null | undefined,
+): string => {
+  if (!ddMMyyyy) return '';
+  return ddMMyyyy.length === 8
     ? `${ddMMyyyy.slice(0, 2)}/${ddMMyyyy.slice(2, 4)}/${ddMMyyyy.slice(4, 8)}`
     : ddMMyyyy;
+};
 
 const formatDecimal = (n: number): string =>
   n.toLocaleString('nl-BE', {
