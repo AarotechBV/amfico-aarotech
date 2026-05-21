@@ -12,6 +12,7 @@ import { RegistrationsOverviewStore } from './registrations-overview.store';
 import { RegistrationsTableComponent } from '../../components/registrations-table/registrations-table.component';
 import { subtractMonths } from '../../utils/subtract-months.util';
 import { endOfLastMonth } from '../../utils/end-of-last-month.util';
+import { RegistrationsPdfService } from '../../services/registrations-pdf.service';
 
 @Component({
   selector: 'ap-registrations-overview',
@@ -23,6 +24,7 @@ import { endOfLastMonth } from '../../utils/end-of-last-month.util';
 })
 export class RegistrationsOverviewPage {
   readonly #store = inject(RegistrationsOverviewStore);
+  readonly #pdfService = inject(RegistrationsPdfService);
 
   registrationDateUntil = signal<Date | null>(endOfLastMonth());
   invoiced = signal(false);
@@ -78,7 +80,13 @@ export class RegistrationsOverviewPage {
   });
 
   print() {
-    window.print();
+    const date = this.registrationDateUntil();
+    if (!date) return;
+    this.#pdfService.generate(
+      this.filteredRelationsWithRegistrations(),
+      this.hierarchy(),
+      date,
+    );
   }
 
   selectDate(event: Event) {

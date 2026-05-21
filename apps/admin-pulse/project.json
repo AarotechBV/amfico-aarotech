@@ -27,7 +27,11 @@
           }
         ],
         "styles": ["apps/admin-pulse/src/styles.scss"],
-        "scripts": []
+        "scripts": [],
+        "allowedCommonJsDependencies": [
+          "pdfmake/build/pdfmake",
+          "pdfmake/build/vfs_fonts"
+        ]
       },
       "configurations": {
         "production": {
