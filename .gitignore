@@ -42,6 +42,13 @@ Thumbs.db
 /admin-pulse.pdf
 /adminpulse-openapi.json
 
+# Environment files (secrets — never commit)
+.env
+.env.local
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+
 .nx/cache
 .nx/workspace-data
 

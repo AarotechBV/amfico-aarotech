@@ -1,0 +1,315 @@
+@if (errorMessage(); as msg) {
+  <div class="errors" role="alert">
+    <strong>Er ging iets mis</strong>
+    <p>{{ msg }}</p>
+    <button type="button" (click)="clearError()">Sluiten</button>
+  </div>
+}
+
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>Gebruikers</h1>
+      <p class="lead">Beheer welke medewerkers toegang hebben tot Admin Pulse.</p>
+    </div>
+    <div class="head-actions">
+      <input
+        class="search"
+        type="search"
+        placeholder="Zoeken op naam of e-mail…"
+        [value]="search()"
+        (input)="onSearch($event)"
+      />
+      <button type="button" class="btn-primary" (click)="openCreate()">
+        Nieuwe gebruiker
+      </button>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <div class="card status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Gebruikers laden…</p>
+    </div>
+  } @else if (!filteredUsers().length) {
+    <div class="card status">
+      <p>Geen gebruikers gevonden.</p>
+    </div>
+  } @else {
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Naam</th>
+            <th>E-mail</th>
+            <th>Rol</th>
+            <th>Status</th>
+            <th>API-sleutel</th>
+            <th>Laatste login</th>
+            <th class="actions">Acties</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of filteredUsers(); track user.id) {
+            <tr [class.inactive]="!user.isActive">
+              <td>{{ user.fullName || '—' }}</td>
+              <td>{{ user.email }}</td>
+              <td>
+                <span class="badge" [class.badge--admin]="user.role === 'admin'">
+                  {{ user.role === 'admin' ? 'Admin' : 'Gebruiker' }}
+                </span>
+              </td>
+              <td>
+                @if (user.isActive) {
+                  <span class="dot dot--ok"></span>Actief
+                } @else {
+                  <span class="dot dot--off"></span>Inactief
+                }
+              </td>
+              <td>
+                @if (user.hasApiKey) {
+                  <span class="dot dot--ok"></span>
+                  {{ user.apiKeyLabel || 'Ingesteld' }}
+                } @else {
+                  <span class="muted">Niet ingesteld</span>
+                }
+              </td>
+              <td class="muted">
+                {{
+                  user.lastSignInAt
+                    ? (user.lastSignInAt | date: 'dd/MM/yyyy HH:mm')
+                    : 'Nooit'
+                }}
+              </td>
+              <td class="actions">
+                <button type="button" (click)="openEdit(user)">Bewerken</button>
+                <button type="button" (click)="openApiKey(user)">
+                  API-sleutel
+                </button>
+                <button type="button" (click)="openReset(user)">
+                  Reset wachtwoord
+                </button>
+                <button
+                  type="button"
+                  class="danger"
+                  (click)="openDelete(user)"
+                >
+                  Verwijderen
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+@if (dialog(); as d) {
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    tabindex="-1"
+    (click)="closeDialog()"
+    (keydown.escape)="closeDialog()"
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="closeDialog()"
+    >
+      @switch (d.kind) {
+        @case ('create') {
+          <h2>Nieuwe gebruiker</h2>
+          <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+            <label class="field">
+              <span class="label">E-mail</span>
+              <input type="email" formControlName="email" />
+            </label>
+            <label class="field">
+              <span class="label">Volledige naam</span>
+              <input type="text" formControlName="fullName" />
+            </label>
+            <label class="field">
+              <span class="label">Rol</span>
+              <select formControlName="role">
+                <option value="user">Gebruiker</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <p class="hint">
+              Het wachtwoord wordt automatisch gegenereerd en eenmalig
+              getoond na aanmaken.
+            </p>
+            <div class="actions">
+              <button type="button" (click)="closeDialog()">Annuleren</button>
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="createForm.invalid || saving()"
+              >
+                {{ saving() ? 'Bezig…' : 'Aanmaken' }}
+              </button>
+            </div>
+          </form>
+        }
+
+        @case ('edit') {
+          <h2>Gebruiker bewerken — {{ d.user.email }}</h2>
+          <form [formGroup]="editForm" (ngSubmit)="submitEdit()" novalidate>
+            <label class="field">
+              <span class="label">Volledige naam</span>
+              <input type="text" formControlName="fullName" />
+            </label>
+            <label class="field">
+              <span class="label">Rol</span>
+              <select formControlName="role">
+                <option value="user">Gebruiker</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="isActive" />
+              <span>Actief</span>
+            </label>
+            <div class="actions">
+              <button type="button" (click)="closeDialog()">Annuleren</button>
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="saving()"
+              >
+                {{ saving() ? 'Bezig…' : 'Opslaan' }}
+              </button>
+            </div>
+          </form>
+        }
+
+        @case ('reset') {
+          <h2>Wachtwoord resetten</h2>
+          <p>
+            Een nieuw wachtwoord wordt gegenereerd voor
+            <strong>{{ d.user.email }}</strong> en eenmalig getoond. De
+            gebruiker moet daarna opnieuw inloggen.
+          </p>
+          <div class="actions">
+            <button type="button" (click)="closeDialog()">Annuleren</button>
+            <button
+              type="button"
+              class="btn-primary"
+              [disabled]="saving()"
+              (click)="submitReset()"
+            >
+              {{ saving() ? 'Bezig…' : 'Wachtwoord resetten' }}
+            </button>
+          </div>
+        }
+
+        @case ('apiKey') {
+          <h2>API-sleutel — {{ d.user.email }}</h2>
+          @if (d.metadata?.hasKey) {
+            <div class="key-meta">
+              <p>
+                <strong>Label:</strong>
+                {{ d.metadata?.label || '—' }}
+              </p>
+              <p>
+                <strong>Laatst gebruikt:</strong>
+                {{
+                  d.metadata?.lastUsedAt
+                    ? (d.metadata?.lastUsedAt | date: 'dd/MM/yyyy HH:mm')
+                    : 'Nog niet gebruikt'
+                }}
+              </p>
+              <p>
+                <strong>Ingesteld op:</strong>
+                {{ d.metadata?.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+              </p>
+            </div>
+            <p class="hint">
+              De sleutelwaarde is niet meer leesbaar. Vervang of verwijder
+              hieronder indien nodig.
+            </p>
+          } @else {
+            <p class="hint">Deze gebruiker heeft nog geen API-sleutel.</p>
+          }
+          <form [formGroup]="apiKeyForm" (ngSubmit)="submitApiKey()" novalidate>
+            <label class="field">
+              <span class="label">Nieuwe sleutel</span>
+              <input type="password" formControlName="key" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span class="label">Label (optioneel)</span>
+              <input type="text" formControlName="label" />
+            </label>
+            <div class="actions">
+              <button type="button" (click)="closeDialog()">Sluiten</button>
+              @if (d.metadata?.hasKey) {
+                <button
+                  type="button"
+                  class="danger"
+                  [disabled]="saving()"
+                  (click)="deleteApiKey()"
+                >
+                  Verwijderen
+                </button>
+              }
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="apiKeyForm.invalid || saving()"
+              >
+                {{ saving() ? 'Bezig…' : 'Opslaan' }}
+              </button>
+            </div>
+          </form>
+        }
+
+        @case ('delete') {
+          <h2>Gebruiker verwijderen</h2>
+          <p>
+            Weet u zeker dat u <strong>{{ d.user.email }}</strong> wilt
+            verwijderen? Dit is permanent.
+          </p>
+          <div class="actions">
+            <button type="button" (click)="closeDialog()">Annuleren</button>
+            <button
+              type="button"
+              class="danger"
+              [disabled]="saving()"
+              (click)="confirmDelete()"
+            >
+              {{ saving() ? 'Bezig…' : 'Definitief verwijderen' }}
+            </button>
+          </div>
+        }
+
+        @case ('credential') {
+          <h2>Wachtwoord aangemaakt</h2>
+          <p>
+            Geef deze gegevens door aan
+            <strong>{{ d.credential.email }}</strong>. Dit wachtwoord is nu
+            niet meer opnieuw op te vragen.
+          </p>
+          <div class="credential">
+            <code>{{ d.credential.password }}</code>
+            <button
+              type="button"
+              (click)="copyToClipboard(d.credential.password)"
+            >
+              Kopiëren
+            </button>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-primary" (click)="closeDialog()">
+              Sluiten
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}

@@ -1,31 +1,31 @@
 import { inject } from '@angular/core';
 import { CanMatchFn, Route, Router } from '@angular/router';
-import { TokenService } from './services/token.service';
+import { AuthService } from './services/auth.service';
 
 const DEFAULT_AUTHENTICATED_ROUTE = '/rapporten/registraties';
 
-const requireToken: CanMatchFn = () => {
-  const tokenService = inject(TokenService);
-  if (tokenService.token()) return true;
+const requireSession: CanMatchFn = () => {
+  const auth = inject(AuthService);
+  if (auth.accessToken()) return true;
   return inject(Router).parseUrl('/login');
 };
 
-const requireNoToken: CanMatchFn = () => {
-  const tokenService = inject(TokenService);
-  if (!tokenService.token()) return true;
+const requireNoSession: CanMatchFn = () => {
+  const auth = inject(AuthService);
+  if (!auth.accessToken()) return true;
   return inject(Router).parseUrl(DEFAULT_AUTHENTICATED_ROUTE);
 };
 
 export const appRoutes: Route[] = [
   {
     path: 'login',
-    canMatch: [requireNoToken],
+    canMatch: [requireNoSession],
     loadComponent: () =>
       import('./pages/login/login.page').then((p) => p.LoginPage),
   },
   {
     path: 'rapporten',
-    canMatch: [requireToken],
+    canMatch: [requireSession],
     children: [
       {
         path: 'registraties',
@@ -37,7 +37,7 @@ export const appRoutes: Route[] = [
       { path: '', pathMatch: 'full', redirectTo: 'registraties' },
     ],
   },
-  // Keep the legacy URL working for anyone with a bookmark
+  // Legacy URL — redirect for bookmarks
   { path: 'registrations', redirectTo: DEFAULT_AUTHENTICATED_ROUTE },
   {
     path: '',

@@ -5,7 +5,7 @@ import {
   output,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { TokenService } from '../../services/token.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'ap-app-header',
@@ -143,11 +143,10 @@ import { TokenService } from '../../services/token.service';
   `,
 })
 export class AppHeaderComponent {
-  readonly #tokenService = inject(TokenService);
+  readonly #auth = inject(AuthService);
   readonly logout = output<void>();
 
   onLogout() {
-    this.#tokenService.clearToken();
-    this.logout.emit();
+    this.#auth.signOut().subscribe(() => this.logout.emit());
   }
 }

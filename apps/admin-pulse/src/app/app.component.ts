@@ -14,7 +14,7 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { filter, map } from 'rxjs';
-import { TokenService } from './services/token.service';
+import { AuthService } from './services/auth.service';
 import { AppHeaderComponent } from './components/app-header/app-header.component';
 
 @Component({
@@ -150,7 +150,7 @@ import { AppHeaderComponent } from './components/app-header/app-header.component
   `,
 })
 export class AppComponent {
-  readonly #tokenService = inject(TokenService);
+  readonly #auth = inject(AuthService);
   readonly #router = inject(Router);
 
   readonly #currentUrl = toSignal(
@@ -161,18 +161,20 @@ export class AppComponent {
     { initialValue: this.#router.url },
   );
 
-  showChrome = computed(() => !!this.#tokenService.token());
+  showChrome = computed(() => !!this.#auth.accessToken());
 
   showRapportenSidebar = computed(
     () => this.showChrome() && this.#currentUrl().startsWith('/rapporten'),
   );
 
-  redirectOnTokenChange = effect(() => {
-    const hasToken = !!this.#tokenService.token();
+  redirectOnSessionChange = effect(() => {
+    // Wait until Supabase has rehydrated the session from localStorage
+    if (!this.#auth.initialised()) return;
+    const hasSession = !!this.#auth.accessToken();
     const onLogin = this.#router.url.startsWith('/login');
-    if (hasToken && onLogin) {
+    if (hasSession && onLogin) {
       this.#router.navigateByUrl('/rapporten/registraties');
-    } else if (!hasToken && !onLogin) {
+    } else if (!hasSession && !onLogin) {
       this.#router.navigateByUrl('/login');
     }
   });

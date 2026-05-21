@@ -10,7 +10,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { TokenService } from '../../services/token.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'ap-login',
@@ -25,24 +25,41 @@ import { TokenService } from '../../services/token.service';
           <span class="suffix">Admin Pulse</span>
         </div>
         <p class="eyebrow">Inloggen</p>
-        <h1>Geef uw AdminPulse-token in</h1>
-        <p class="lead">
-          Het token wordt enkel lokaal in deze browser bewaard. We delen het
-          niet met derden.
-        </p>
+        <h1>Welkom terug</h1>
+        <p class="lead">Meld u aan met uw e-mailadres en wachtwoord.</p>
+
         <label class="field">
-          <span class="label">Token</span>
+          <span class="label">E-mail</span>
           <input
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            formControlName="token"
+            type="email"
+            autocomplete="email"
+            formControlName="email"
+            placeholder="naam@bedrijf.be"
           />
         </label>
-        @if (submitted() && form.controls.token.invalid) {
-          <small class="error">Token mag niet leeg zijn.</small>
+
+        <label class="field">
+          <span class="label">Wachtwoord</span>
+          <input
+            type="password"
+            autocomplete="current-password"
+            formControlName="password"
+          />
+        </label>
+
+        @if (submitted() && form.controls.email.invalid) {
+          <small class="error">E-mailadres is verplicht.</small>
         }
-        <button type="submit" class="btn-primary">Inloggen</button>
+        @if (submitted() && form.controls.password.invalid) {
+          <small class="error">Wachtwoord is verplicht.</small>
+        }
+        @if (errorMessage(); as msg) {
+          <small class="error">{{ msg }}</small>
+        }
+
+        <button type="submit" class="btn-primary" [disabled]="loading()">
+          {{ loading() ? 'Bezig…' : 'Inloggen' }}
+        </button>
       </form>
     </main>
   `,
@@ -129,7 +146,8 @@ import { TokenService } from '../../services/token.service';
       font-size: var(--fs-sm);
       color: var(--color-fg);
       background: var(--color-bg);
-      transition: border-color var(--dur-fast) var(--ease-out),
+      transition:
+        border-color var(--dur-fast) var(--ease-out),
         box-shadow var(--dur-fast) var(--ease-out);
     }
 
@@ -150,16 +168,22 @@ import { TokenService } from '../../services/token.service';
       font-weight: var(--fw-semibold);
       font-size: var(--fs-sm);
       cursor: pointer;
-      transition: background-color var(--dur-base) var(--ease-out),
+      transition:
+        background-color var(--dur-base) var(--ease-out),
         transform var(--dur-fast) var(--ease-out);
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       background: var(--color-primary-hover);
     }
 
     .btn-primary:active {
       transform: scale(0.98);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .error {
@@ -169,20 +193,40 @@ import { TokenService } from '../../services/token.service';
   `,
 })
 export class LoginPage {
-  readonly #tokenService = inject(TokenService);
+  readonly #auth = inject(AuthService);
 
   readonly form = new FormGroup({
-    token: new FormControl('', {
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    password: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required],
     }),
   });
 
   submitted = signal(false);
+  loading = signal(false);
+  errorMessage = signal<string | null>(null);
 
   submit() {
     this.submitted.set(true);
+    this.errorMessage.set(null);
     if (this.form.invalid) return;
-    this.#tokenService.updateToken(this.form.controls.token.value);
+    this.loading.set(true);
+    const { email, password } = this.form.getRawValue();
+    this.#auth.signInWithPassword(email, password).subscribe({
+      next: () => {
+        this.loading.set(false);
+        // AppComponent's redirectOnSessionChange effect handles navigation
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.errorMessage.set(
+          err?.message ?? 'Aanmelden mislukt. Controleer uw gegevens.',
+        );
+      },
+    });
   }
 }

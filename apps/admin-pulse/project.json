@@ -26,7 +26,10 @@
             "input": "apps/admin-pulse/public"
           }
         ],
-        "styles": ["apps/admin-pulse/src/styles.scss"],
+        "styles": [
+          "libs/admin-pulse-design/src/styles.scss",
+          "apps/admin-pulse/src/styles.scss"
+        ],
         "scripts": [],
         "allowedCommonJsDependencies": [
           "pdfmake/build/pdfmake",

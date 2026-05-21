@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
+      envFilePath: ['apps/admin-pulse-api/.env', '.env'],
     }),
     CacheModule.registerAsync({
       isGlobal: true,

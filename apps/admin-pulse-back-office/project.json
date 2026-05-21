@@ -1,0 +1,90 @@
+{
+  "name": "admin-pulse-back-office",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "ap",
+  "sourceRoot": "apps/admin-pulse-back-office/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/admin-pulse-back-office",
+        "browser": "apps/admin-pulse-back-office/src/main.ts",
+        "tsConfig": "apps/admin-pulse-back-office/tsconfig.app.json",
+        "inlineStyleLanguage": "scss",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/admin-pulse-back-office/public"
+          }
+        ],
+        "styles": [
+          "libs/admin-pulse-design/src/styles.scss",
+          "apps/admin-pulse-back-office/src/styles.scss"
+        ]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "options": {
+        "port": 4201
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "admin-pulse-back-office:build:production"
+        },
+        "development": {
+          "buildTarget": "admin-pulse-back-office:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/admin-pulse-back-office/jest.config.cts",
+        "tsConfig": "apps/admin-pulse-back-office/tsconfig.spec.json"
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "admin-pulse-back-office:build",
+        "port": 4201,
+        "staticFilePath": "dist/apps/admin-pulse-back-office/browser",
+        "spa": true
+      }
+    }
+  }
+}

@@ -1,39 +1,28 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request } from 'express';
-
-const BEARER_PREFIX = 'Bearer ';
+import { AuthResolver } from '../auth/auth-resolver.service';
 
 /**
- * Extracts the AdminPulse bearer token from the incoming Authorization header
- * and attaches it as `request.adminPulseToken` so controllers and services
- * can read it without parsing the header themselves.
+ * Authenticates a request AND resolves the user's AdminPulse API key.
+ * Use on endpoints that proxy AdminPulse calls. The decrypted key is
+ * stamped onto request.authContext.adminPulseToken — read it via the
+ * @AdminPulseToken() decorator.
  *
- * Today this is pass-through (frontend sends the token). When we move to
- * OAuth, this is the only file that has to change — the token can come from
- * a session, a cookie, or a token exchange.
+ * This is the single seam between "how users log in" and "what we pass
+ * upstream to AdminPulse". Swapping to OAuth later only changes
+ * AuthResolver.
  */
 @Injectable()
 export class AdminPulseAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const request = context
-      .switchToHttp()
-      .getRequest<Request & { adminPulseToken?: string }>();
-    const header = request.headers.authorization;
-    if (!header?.startsWith(BEARER_PREFIX)) {
-      throw new UnauthorizedException(
-        'Missing or malformed Authorization header',
-      );
-    }
-    const token = header.slice(BEARER_PREFIX.length).trim();
-    if (!token) {
-      throw new UnauthorizedException('Empty bearer token');
-    }
-    request.adminPulseToken = token;
+  constructor(private readonly resolver: AuthResolver) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const session = await this.resolver.resolveSession(request);
+    const adminPulseToken = await this.resolver.loadAdminPulseToken(
+      session.userId,
+    );
+    request.authContext = { ...session, adminPulseToken };
     return true;
   }
 }
