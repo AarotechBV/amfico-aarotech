@@ -4,6 +4,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CompaniesModule } from './companies/companies.module';
 import { CoreModule } from './core/core.module';
+import { OfficeModule } from './office/office.module';
 import { OverviewModule } from './overview/overview.module';
 
 @Module({
@@ -12,6 +13,7 @@ import { OverviewModule } from './overview/overview.module';
     AuthModule,
     AdminPulseModule,
     AdminModule,
+    OfficeModule,
     CompaniesModule,
     OverviewModule,
   ],

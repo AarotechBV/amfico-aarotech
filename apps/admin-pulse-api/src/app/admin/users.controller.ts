@@ -7,14 +7,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOkResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import {
   CreateUserDto,
@@ -25,17 +22,20 @@ import {
 } from './dtos/user.dto';
 import { UsersService } from './users.service';
 
+/**
+ * Cross-office user management. Super admin only.
+ */
 @ApiTags('admin/users')
 @ApiBearerAuth()
-@UseGuards(SupabaseAuthGuard, AdminGuard)
+@UseGuards(SupabaseAuthGuard, SuperAdminGuard)
 @Controller('admin/users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
-  @ApiOkResponse({ description: 'List all users' })
-  list(): Promise<UserSummary[]> {
-    return this.users.listUsers();
+  @ApiOkResponse({ description: 'List users, optionally filtered by office' })
+  list(@Query('officeId') officeId?: string): Promise<UserSummary[]> {
+    return this.users.listUsers(officeId ? { officeId } : {});
   }
 
   @Post()

@@ -7,20 +7,23 @@ import {
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CryptoService } from '../auth/crypto.service';
 import { SUPABASE_ADMIN } from '../auth/supabase.module';
-import { ApiKeyMetadata, SetApiKeyDto } from './dtos/api-key.dto';
+import {
+  OfficeApiKeyMetadata,
+  SetOfficeApiKeyDto,
+} from './dtos/office-api-key.dto';
 
 @Injectable()
-export class ApiKeysService {
+export class OfficeApiKeyService {
   constructor(
     @Inject(SUPABASE_ADMIN) private readonly supabase: SupabaseClient,
     private readonly crypto: CryptoService,
   ) {}
 
-  async getMetadata(userId: string): Promise<ApiKeyMetadata> {
+  async getMetadata(officeId: string): Promise<OfficeApiKeyMetadata> {
     const { data, error } = await this.supabase
       .from('admin_pulse_keys')
       .select('label, last_used_at, created_at, updated_at')
-      .eq('user_id', userId)
+      .eq('office_id', officeId)
       .maybeSingle();
     if (error) {
       throw new InternalServerErrorException(error.message);
@@ -43,27 +46,32 @@ export class ApiKeysService {
     };
   }
 
-  async upsertKey(userId: string, dto: SetApiKeyDto): Promise<ApiKeyMetadata> {
+  async upsertKey(
+    officeId: string,
+    dto: SetOfficeApiKeyDto,
+  ): Promise<OfficeApiKeyMetadata> {
     const encrypted = this.crypto.encrypt(dto.key.trim());
-    const payload = {
-      user_id: userId,
-      encrypted_key: encrypted,
-      label: dto.label ?? null,
-    };
     const { error } = await this.supabase
       .from('admin_pulse_keys')
-      .upsert(payload, { onConflict: 'user_id' });
+      .upsert(
+        {
+          office_id: officeId,
+          encrypted_key: encrypted,
+          label: dto.label ?? null,
+        },
+        { onConflict: 'office_id' },
+      );
     if (error) {
       throw new InternalServerErrorException(error.message);
     }
-    return this.getMetadata(userId);
+    return this.getMetadata(officeId);
   }
 
-  async deleteKey(userId: string): Promise<void> {
+  async deleteKey(officeId: string): Promise<void> {
     const { error } = await this.supabase
       .from('admin_pulse_keys')
       .delete()
-      .eq('user_id', userId);
+      .eq('office_id', officeId);
     if (error) {
       throw new NotFoundException(error.message);
     }

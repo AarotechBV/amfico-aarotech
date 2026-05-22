@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ApiKeysController } from './api-keys.controller';
-import { ApiKeysService } from './api-keys.service';
+import { OfficesController } from './offices.controller';
+import { OfficesService } from './offices.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
-  controllers: [UsersController, ApiKeysController],
-  providers: [UsersService, ApiKeysService],
+  controllers: [UsersController, OfficesController],
+  providers: [UsersService, OfficesService],
+  exports: [UsersService, OfficesService],
 })
 export class AdminModule {}

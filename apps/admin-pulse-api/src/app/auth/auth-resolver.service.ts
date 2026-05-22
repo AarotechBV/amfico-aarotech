@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -10,28 +11,44 @@ import { CryptoService } from './crypto.service';
 import { SUPABASE_ADMIN } from './supabase.module';
 
 const BEARER_PREFIX = 'Bearer ';
+const ACTIVE_OFFICE_HEADER = 'x-active-office';
 
-export type AuthRole = 'user' | 'admin';
+export type AppRole = 'user' | 'admin' | 'super_admin';
 
-export interface AuthedRequestContext {
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+export interface SessionContext {
   userId: string;
   email: string;
-  role: AuthRole;
-  /** Only set on requests that went through AdminPulseAuthGuard */
+  role: AppRole;
+  /** Profile's office_id. Null only for super_admin. */
+  homeOfficeId: string | null;
+  /**
+   * The office to operate on. For admin/user it equals homeOfficeId.
+   * For super_admin it equals the X-Active-Office header value (or null
+   * when the header is absent). Office-scoped endpoints require this to
+   * be non-null.
+   */
+  activeOfficeId: string | null;
+  /**
+   * Decrypted AdminPulse API key for activeOfficeId. Only set by
+   * AdminPulseAuthGuard.
+   */
   adminPulseToken?: string;
 }
 
 declare module 'express' {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface Request {
-    authContext?: AuthedRequestContext;
+    authContext?: SessionContext;
   }
 }
 
 /**
- * Shared auth machinery. The two guards (SupabaseAuthGuard,
- * AdminPulseAuthGuard) both call into this — keeps the JWT-verification
- * and profile-loading logic in one place.
+ * Shared auth machinery. The guards call into this — keeps the
+ * JWT-verification, profile-loading and office-resolution logic in one
+ * place.
  */
 @Injectable()
 export class AuthResolver {
@@ -41,11 +58,10 @@ export class AuthResolver {
   ) {}
 
   /**
-   * Verifies the Authorization bearer is a valid Supabase JWT and the
-   * matching profile is active. Returns the base context; does NOT load
-   * the AdminPulse API key (use `loadAdminPulseToken` for that).
+   * Verifies the bearer JWT and resolves session + active office.
+   * Does NOT load the AdminPulse API key (`loadAdminPulseToken` does).
    */
-  async resolveSession(request: Request): Promise<AuthedRequestContext> {
+  async resolveSession(request: Request): Promise<SessionContext> {
     const header = request.headers.authorization;
     if (!header?.startsWith(BEARER_PREFIX)) {
       throw new UnauthorizedException(
@@ -67,7 +83,7 @@ export class AuthResolver {
 
     const { data: profile, error: profileErr } = await this.supabase
       .from('profiles')
-      .select('role, is_active')
+      .select('role_id, office_id, is_active')
       .eq('id', user.id)
       .single();
     if (profileErr || !profile) {
@@ -77,34 +93,56 @@ export class AuthResolver {
       throw new ForbiddenException('User account is deactivated');
     }
 
+    const role = profile.role_id as AppRole;
+    const homeOfficeId = profile.office_id as string | null;
+    const requestedActiveOffice = this.#readActiveOfficeHeader(request);
+
+    let activeOfficeId: string | null;
+    if (role === 'super_admin') {
+      // super_admin can switch to any office (or none for cross-office work)
+      activeOfficeId = requestedActiveOffice;
+    } else {
+      // admin / user is locked to their home office
+      if (
+        requestedActiveOffice &&
+        requestedActiveOffice !== homeOfficeId
+      ) {
+        throw new ForbiddenException(
+          'Cannot act on another office than your own',
+        );
+      }
+      activeOfficeId = homeOfficeId;
+    }
+
     return {
       userId: user.id,
       email: user.email ?? '',
-      role: profile.role as AuthRole,
+      role,
+      homeOfficeId,
+      activeOfficeId,
     };
   }
 
   /**
-   * Loads + decrypts the AdminPulse API key linked to a user. Throws
-   * ForbiddenException if no key is linked or decryption fails.
+   * Loads + decrypts the AdminPulse API key for the active office.
+   * Throws if the office is missing, has no key, or decryption fails.
    */
-  async loadAdminPulseToken(userId: string): Promise<string> {
-    const { data: keyRow, error: keyErr } = await this.supabase
+  async loadAdminPulseToken(activeOfficeId: string): Promise<string> {
+    const { data: keyRow, error } = await this.supabase
       .from('admin_pulse_keys')
       .select('id, encrypted_key')
-      .eq('user_id', userId)
+      .eq('office_id', activeOfficeId)
       .maybeSingle();
-    if (keyErr) {
+    if (error) {
       throw new UnauthorizedException('Could not load AdminPulse key');
     }
     if (!keyRow) {
       throw new ForbiddenException(
-        'No AdminPulse API key linked to this account. Contact your administrator.',
+        'No AdminPulse API key linked to this office. Ask an administrator to set it.',
       );
     }
     try {
       const token = this.crypto.decrypt(keyRow.encrypted_key);
-      // Fire-and-forget last_used_at stamp
       void this.supabase
         .from('admin_pulse_keys')
         .update({ last_used_at: new Date().toISOString() })
@@ -112,8 +150,20 @@ export class AuthResolver {
       return token;
     } catch {
       throw new ForbiddenException(
-        'Stored AdminPulse key could not be decrypted. Contact your administrator.',
+        'Stored AdminPulse key could not be decrypted. Contact an administrator.',
       );
     }
+  }
+
+  #readActiveOfficeHeader(request: Request): string | null {
+    const raw = request.headers[ACTIVE_OFFICE_HEADER];
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (!value) return null;
+    if (!UUID_RE.test(value)) {
+      throw new BadRequestException(
+        `Invalid ${ACTIVE_OFFICE_HEADER} header (must be a UUID)`,
+      );
+    }
+    return value;
   }
 }

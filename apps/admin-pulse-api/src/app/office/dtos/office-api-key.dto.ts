@@ -1,9 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length, MinLength } from 'class-validator';
 
-export class SetApiKeyDto {
+export class SetOfficeApiKeyDto {
   @ApiProperty({
-    description: 'Plaintext AdminPulse API key. Encrypted server-side before storage.',
+    description:
+      'Plaintext AdminPulse API key. Encrypted server-side before storage.',
   })
   @IsString()
   @MinLength(10)
@@ -16,7 +17,7 @@ export class SetApiKeyDto {
   label?: string;
 }
 
-export interface ApiKeyMetadata {
+export interface OfficeApiKeyMetadata {
   hasKey: boolean;
   label: string | null;
   lastUsedAt: string | null;

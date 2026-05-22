@@ -1,24 +1,64 @@
 -- =============================================================
--- Admin Pulse — Supabase schema
--- Run once in the Supabase SQL editor for a fresh project.
--- Idempotent: safe to re-run; uses `create ... if not exists`
--- and `drop trigger if exists` where helpful.
+-- Admin Pulse — Supabase schema (fresh install)
+-- =============================================================
+-- Run once in the Supabase SQL editor for a brand-new project.
+-- For existing deployments, run the dated migrations under
+-- ./migrations/ in chronological order instead.
+-- Idempotent — safe to re-run.
 -- =============================================================
 
--- 1. Profiles: extends auth.users with role + activation flag
-create table if not exists public.profiles (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  full_name   text,
-  role        text not null default 'user' check (role in ('user', 'admin')),
+-- ---------- Roles ----------
+
+create table if not exists public.roles (
+  id            text primary key,
+  label         text not null,
+  level         int  not null,
+  capabilities  jsonb not null default '{}'::jsonb
+);
+
+insert into public.roles (id, label, level) values
+  ('user',        'Gebruiker',  10),
+  ('admin',       'Admin',      20),
+  ('super_admin', 'Super admin', 30)
+on conflict (id) do update
+  set label = excluded.label,
+      level = excluded.level;
+
+-- ---------- Offices (tenant boundary) ----------
+
+create table if not exists public.offices (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
   is_active   boolean not null default true,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
--- 2. AdminPulse API key per user (encrypted at rest by NestJS)
+-- ---------- Profiles (extends auth.users) ----------
+
+create table if not exists public.profiles (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  full_name   text,
+  role_id     text not null default 'user' references public.roles(id),
+  office_id   uuid references public.offices(id) on delete restrict,
+  is_active   boolean not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+-- Invariant: super_admin <-> office_id IS NULL
+alter table public.profiles drop constraint if exists chk_role_office_consistency;
+alter table public.profiles
+  add constraint chk_role_office_consistency check (
+    (role_id = 'super_admin' and office_id is null)
+    or (role_id <> 'super_admin' and office_id is not null)
+  );
+
+-- ---------- AdminPulse API key (one per office) ----------
+
 create table if not exists public.admin_pulse_keys (
   id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null unique references auth.users(id) on delete cascade,
+  office_id       uuid not null unique references public.offices(id) on delete cascade,
   encrypted_key   text not null,
   label           text,
   last_used_at    timestamptz,
@@ -26,7 +66,8 @@ create table if not exists public.admin_pulse_keys (
   updated_at      timestamptz not null default now()
 );
 
--- 3. Auto-create a profile row whenever a new auth user is created
+-- ---------- Triggers ----------
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -45,7 +86,6 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- 4. updated_at touchers
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -59,17 +99,22 @@ create trigger profiles_touch
   before update on public.profiles
   for each row execute function public.set_updated_at();
 
+drop trigger if exists offices_touch on public.offices;
+create trigger offices_touch
+  before update on public.offices
+  for each row execute function public.set_updated_at();
+
 drop trigger if exists admin_pulse_keys_touch on public.admin_pulse_keys;
 create trigger admin_pulse_keys_touch
   before update on public.admin_pulse_keys
   for each row execute function public.set_updated_at();
 
--- 5. Row-Level Security
--- NestJS uses the service_role key and bypasses RLS for admin operations,
--- but we still set sane defaults so any future surface using the anon
--- client is locked down by default.
+-- ---------- RLS ----------
+
 alter table public.profiles enable row level security;
 alter table public.admin_pulse_keys enable row level security;
+alter table public.offices enable row level security;
+alter table public.roles enable row level security;
 
 drop policy if exists profiles_self_read on public.profiles;
 create policy profiles_self_read on public.profiles
@@ -77,7 +122,7 @@ create policy profiles_self_read on public.profiles
     auth.uid() = id
     or exists (
       select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin'
+      where p.id = auth.uid() and p.role_id = 'super_admin'
     )
   );
 
@@ -85,5 +130,12 @@ drop policy if exists profiles_self_update on public.profiles;
 create policy profiles_self_update on public.profiles
   for update using (auth.uid() = id);
 
--- admin_pulse_keys has no policies on purpose — anon/authenticated clients
--- cannot touch it. Only the service_role (NestJS) can read/write.
+drop policy if exists offices_authenticated_read on public.offices;
+create policy offices_authenticated_read on public.offices
+  for select using (auth.uid() is not null);
+
+drop policy if exists roles_authenticated_read on public.roles;
+create policy roles_authenticated_read on public.roles
+  for select using (auth.uid() is not null);
+
+-- admin_pulse_keys: no policies on purpose. Only service_role touches it.

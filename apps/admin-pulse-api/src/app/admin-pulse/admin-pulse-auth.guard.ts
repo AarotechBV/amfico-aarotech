@@ -1,16 +1,22 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { AuthResolver } from '../auth/auth-resolver.service';
 
 /**
- * Authenticates a request AND resolves the user's AdminPulse API key.
- * Use on endpoints that proxy AdminPulse calls. The decrypted key is
- * stamped onto request.authContext.adminPulseToken — read it via the
- * @AdminPulseToken() decorator.
+ * Authenticates the request, resolves the active office, and loads +
+ * decrypts that office's AdminPulse API key. Stamps the result onto
+ * request.authContext for downstream controllers to read via
+ * @AdminPulseToken().
  *
- * This is the single seam between "how users log in" and "what we pass
- * upstream to AdminPulse". Swapping to OAuth later only changes
- * AuthResolver.
+ * For admin/user the active office is their own profile.office_id.
+ * For super_admin the active office must be supplied via the
+ * X-Active-Office header (otherwise the request is rejected — there's
+ * no sensible default key to use).
  */
 @Injectable()
 export class AdminPulseAuthGuard implements CanActivate {
@@ -19,8 +25,13 @@ export class AdminPulseAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const session = await this.resolver.resolveSession(request);
+    if (!session.activeOfficeId) {
+      throw new BadRequestException(
+        'No active office in scope — set X-Active-Office header',
+      );
+    }
     const adminPulseToken = await this.resolver.loadAdminPulseToken(
-      session.userId,
+      session.activeOfficeId,
     );
     request.authContext = { ...session, adminPulseToken };
     return true;
