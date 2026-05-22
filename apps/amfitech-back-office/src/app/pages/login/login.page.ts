@@ -21,7 +21,7 @@ import { AuthService } from '../../services/auth.service';
       <div class="ribbon" aria-hidden="true"></div>
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <div class="brand">
-          <span class="wordmark">amfico</span>
+          <span class="wordmark">amfitech</span>
           <span class="suffix">Back Office</span>
         </div>
         <p class="eyebrow">Inloggen</p>
