@@ -73,6 +73,8 @@ pasting the secret values.
        it was last generated. Skipping the auto-install lets the
        build command's `npm install` resolve the right binary for
        Cloudflare's Linux builders.
+     - `NX_DAEMON` = `false` — Nx's background daemon crashes on
+       ephemeral CI hosts; disabling it makes the build deterministic.
 4. **Save and Deploy**. First build is ~3–4 min.
 5. Visit the assigned URL (e.g. `https://amfitech.pages.dev`) and confirm the login page loads. *Don't try to log in yet — backend CORS still needs the URL.*
 
@@ -85,7 +87,7 @@ Same flow, just swap names:
 - **Project name**: `amfitech-back-office`
 - **Build command**: `npm install --legacy-peer-deps --include=dev && npx nx build amfitech-back-office --configuration=production`
 - **Build output directory**: `dist/apps/amfitech-back-office/browser`
-- **Environment variables**: `SKIP_DEPENDENCY_INSTALL` = `1` (same reason as `amfitech`)
+- **Environment variables**: `SKIP_DEPENDENCY_INSTALL` = `1` + `NX_DAEMON` = `false` (same reasons as `amfitech`)
 
 Build, copy the resulting URL.
 

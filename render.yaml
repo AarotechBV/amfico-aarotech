@@ -33,6 +33,13 @@ services:
       - key: NODE_VERSION
         value: "22"
 
+      # Nx's background daemon crashes on Render's ephemeral builders
+      # ("Nx Daemon was not able to compute the project graph"). The
+      # daemon is a build-time optimisation only — disabling it costs
+      # a few seconds, succeeds reliably, and lets the build finish.
+      - key: NX_DAEMON
+        value: "false"
+
       # ---- Frontend origins (set once Cloudflare Pages URLs are known) ----
       - key: FRONTEND_ORIGINS
         sync: false
