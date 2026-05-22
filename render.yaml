@@ -14,7 +14,11 @@ services:
     branch: main
     autoDeploy: true
     rootDir: .
-    buildCommand: npm install --legacy-peer-deps && npx nx build amfitech-api --configuration=production
+    # `--include=dev` is required because NODE_ENV=production is set
+    # below; without the flag, npm omits devDependencies (which is
+    # where Nx lives) and the build fails with "Could not find Nx
+    # modules". `npm ci` is deterministic against the lockfile.
+    buildCommand: npm ci --legacy-peer-deps --include=dev && npx nx build amfitech-api --configuration=production
     startCommand: node dist/apps/amfitech-api/main.js
     healthCheckPath: /api/health
     envVars:
