@@ -4,9 +4,9 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug admin-pulse-api with Nx",
+      "name": "Debug amfitech-api with Nx",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["nx", "serve", "admin-pulse-api"],
+      "runtimeArgs": ["nx", "serve", "amfitech-api"],
       "env": {
         "NODE_OPTIONS": "--inspect=9229"
       },
@@ -15,7 +15,7 @@
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
       "outFiles": [
-        "${workspaceFolder}/apps/admin-pulse-api/dist/**/*.(m|c|)js",
+        "${workspaceFolder}/apps/amfitech-api/dist/**/*.(m|c|)js",
         "!**/node_modules/**"
       ]
     }

@@ -1,0 +1,108 @@
+{
+  "name": "amfitech",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "am",
+  "sourceRoot": "apps/amfitech/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/amfitech",
+        "browser": "apps/amfitech/src/main.ts",
+        "polyfills": [],
+        "tsConfig": "apps/amfitech/tsconfig.app.json",
+        "inlineStyleLanguage": "scss",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/amfitech/public"
+          }
+        ],
+        "styles": [
+          "libs/amfitech-design/src/styles.scss",
+          "apps/amfitech/src/styles.scss"
+        ],
+        "scripts": [],
+        "allowedCommonJsDependencies": [
+          "pdfmake/build/pdfmake",
+          "pdfmake/build/vfs_fonts"
+        ]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/amfitech/src/environments/environment.ts",
+              "with": "apps/amfitech/src/environments/environment.prod.ts"
+            }
+          ]
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "options": {
+        "hmr": true
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "amfitech:build:production"
+        },
+        "development": {
+          "buildTarget": "amfitech:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "extract-i18n": {
+      "executor": "@angular/build:extract-i18n",
+      "options": {
+        "buildTarget": "amfitech:build"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/amfitech/jest.config.ts",
+        "tsConfig": "apps/amfitech/tsconfig.spec.json"
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "amfitech:build",
+        "port": 4200,
+        "staticFilePath": "dist/apps/amfitech/browser",
+        "spa": true
+      }
+    }
+  }
+}

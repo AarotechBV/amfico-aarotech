@@ -1,0 +1,25 @@
+{
+  "name": "amfitech-shared",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/amfitech-shared/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/amfitech-shared",
+        "main": "libs/amfitech-shared/src/index.ts",
+        "tsConfig": "libs/amfitech-shared/tsconfig.lib.json",
+        "assets": ["libs/amfitech-shared/*.md"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/amfitech-shared/jest.config.cts"
+      }
+    }
+  }
+}

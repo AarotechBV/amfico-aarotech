@@ -15,8 +15,8 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@amfico@aarotech/admin-pulse-shared": [
-        "./libs/admin-pulse-shared/src/index.ts"
+      "@amfico@aarotech/amfitech-shared": [
+        "./libs/amfitech-shared/src/index.ts"
       ]
     }
   },
