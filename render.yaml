@@ -17,8 +17,14 @@ services:
     # `--include=dev` is required because NODE_ENV=production is set
     # below; without the flag, npm omits devDependencies (which is
     # where Nx lives) and the build fails with "Could not find Nx
-    # modules". `npm ci` is deterministic against the lockfile.
-    buildCommand: npm ci --include=dev && npx nx build amfitech-api --configuration=production
+    # modules". `npm install` (not `npm ci`) is forgiving about
+    # lockfile drift across operating systems — Nx ships platform-
+    # specific native binaries as optional deps and npm ci would
+    # refuse to install anything that isn't in the lockfile's
+    # `node_modules/...` block for the current OS. `--legacy-peer-
+    # deps` matches the rules the existing lockfile was generated
+    # under.
+    buildCommand: npm install --legacy-peer-deps --include=dev && npx nx build amfitech-api --configuration=production
     startCommand: node dist/apps/amfitech-api/main.js
     healthCheckPath: /api/health
     envVars:

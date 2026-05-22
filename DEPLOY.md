@@ -62,15 +62,17 @@ pasting the secret values.
    - **Production branch**: `main`
    - **Build command**:
      ```
-     npx nx build amfitech --configuration=production
+     npm install --legacy-peer-deps --include=dev && npx nx build amfitech --configuration=production
      ```
    - **Build output directory**: `dist/apps/amfitech/browser`
    - **Root directory**: leave blank (workspace root)
    - **Environment variables**:
-     - `NPM_FLAGS` = `--include=dev` (Cloudflare's auto-install runs
-       with NODE_ENV=production by default, which skips
-       devDependencies — Nx lives there, so without this flag the
-       build fails with "Could not find Nx modules")
+     - `SKIP_DEPENDENCY_INSTALL` = `1` — Cloudflare's auto-install
+       runs strict `npm ci`, which trips on platform-specific Nx
+       native binaries that the lockfile lists only for the OS where
+       it was last generated. Skipping the auto-install lets the
+       build command's `npm install` resolve the right binary for
+       Cloudflare's Linux builders.
 4. **Save and Deploy**. First build is ~3–4 min.
 5. Visit the assigned URL (e.g. `https://amfitech.pages.dev`) and confirm the login page loads. *Don't try to log in yet — backend CORS still needs the URL.*
 
@@ -81,9 +83,9 @@ pasting the secret values.
 Same flow, just swap names:
 
 - **Project name**: `amfitech-back-office`
-- **Build command**: `npx nx build amfitech-back-office --configuration=production`
+- **Build command**: `npm install --legacy-peer-deps --include=dev && npx nx build amfitech-back-office --configuration=production`
 - **Build output directory**: `dist/apps/amfitech-back-office/browser`
-- **Environment variables**: `NPM_FLAGS` = `--include=dev` (same reason as `amfitech`)
+- **Environment variables**: `SKIP_DEPENDENCY_INSTALL` = `1` (same reason as `amfitech`)
 
 Build, copy the resulting URL.
 
