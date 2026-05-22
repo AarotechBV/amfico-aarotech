@@ -23,9 +23,10 @@ export interface OfficeSummary {
 export interface MeResponse {
   userId: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   fullName: string | null;
   role: AppRole;
-  homeOfficeId: string | null;
   offices: OfficeSummary[];
 }
 

@@ -23,9 +23,10 @@ export interface OfficeSummary {
 export interface MeResponse {
   userId: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   fullName: string | null;
   role: AppRole;
-  homeOfficeId: string | null;
   offices: OfficeSummary[];
 }
 
@@ -36,9 +37,11 @@ const ACTIVE_OFFICE_STORAGE_KEY = 'ap.active-office';
  * currently active office. Owns the X-Active-Office persistence layer
  * (localStorage) and the per-role default-office logic.
  *
- *   - admin/user: activeOfficeId is always their homeOfficeId
- *   - super_admin: activeOfficeId is persisted across reloads; null
- *     until the user picks one
+ *   - single-office non-super_admin: activeOfficeId is always that one
+ *     office (no switcher, no picker)
+ *   - everyone else (multi-office non-super_admin, any super_admin):
+ *     activeOfficeId is persisted across reloads; null until picked,
+ *     which forces the picker modal
  */
 @Injectable({ providedIn: 'root' })
 export class MeService {
@@ -60,14 +63,31 @@ export class MeService {
   readonly offices = computed<OfficeSummary[]>(
     () => this.#me()?.offices ?? [],
   );
-  readonly homeOfficeId = computed<string | null>(
-    () => this.#me()?.homeOfficeId ?? null,
-  );
   readonly activeOfficeId = this.#activeOfficeId.asReadonly();
   readonly activeOffice = computed<OfficeSummary | null>(() => {
     const id = this.#activeOfficeId();
     if (!id) return null;
     return this.offices().find((o) => o.id === id) ?? null;
+  });
+  /**
+   * True when the user has 2+ visible offices — drives the header
+   * switcher. Single-office users (any role) see a static label.
+   */
+  readonly canSwitchOffice = computed(() => {
+    const me = this.#me();
+    return !!me && me.offices.length > 1;
+  });
+  /**
+   * True when the user is signed in but has no active office. The
+   * picker modal blocks the app until this clears. Single-office
+   * non-super_admin users never hit this because reconcile auto-picks
+   * for them. The offices.length === 0 guard prevents a fresh-install
+   * super_admin from being stuck on an empty picker.
+   */
+  readonly needsOfficePick = computed(() => {
+    const me = this.#me();
+    if (!me || me.offices.length === 0) return false;
+    return !this.#activeOfficeId();
   });
 
   /**
@@ -86,26 +106,28 @@ export class MeService {
   });
 
   /**
-   * Keeps activeOfficeId consistent with role + offices:
-   *   - admin/user: always equal to homeOfficeId
-   *   - super_admin: keep current selection if it's still a visible
-   *     office; otherwise null (forces them to pick)
+   * Keeps activeOfficeId consistent with the visible offices:
+   *   - signed out (no token): clear persisted selection
+   *   - signed in but /me still loading: leave the persisted value
+   *     alone so a refresh doesn't trigger the picker
+   *   - exactly one visible office: auto-pick it (no modal, no switcher)
+   *   - multiple visible offices: keep the persisted selection if it's
+   *     still in the list; otherwise null (forces a pick)
    */
   reconcileActiveOffice = effect(() => {
     const me = this.#me();
     untracked(() => {
       if (!me) {
-        this.#setActive(null);
+        if (!this.#auth.accessToken()) this.#setActive(null);
         return;
       }
-      if (me.role === 'super_admin') {
-        const stored = this.#activeOfficeId();
-        const stillVisible =
-          stored && me.offices.some((o) => o.id === stored);
-        if (!stillVisible) this.#setActive(null);
-      } else {
-        this.#setActive(me.homeOfficeId);
+      if (me.offices.length === 1) {
+        this.#setActive(me.offices[0].id);
+        return;
       }
+      const stored = this.#activeOfficeId();
+      const stillVisible = stored && me.offices.some((o) => o.id === stored);
+      if (!stillVisible) this.#setActive(null);
     });
   });
 
@@ -124,8 +146,6 @@ export class MeService {
   }
 
   setActiveOffice(officeId: string | null) {
-    // Only super_admin should be calling this; for admin/user the
-    // reconcile effect immediately resets to homeOfficeId on change.
     this.#setActive(officeId);
   }
 

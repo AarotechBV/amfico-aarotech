@@ -1,10 +1,7 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
-  HttpCode,
-  HttpStatus,
   Put,
   Req,
   UseGuards,
@@ -45,11 +42,5 @@ export class OfficeApiKeyController {
     @Body() dto: SetOfficeApiKeyDto,
   ): Promise<OfficeApiKeyMetadata> {
     return this.service.upsertKey(req.authContext!.activeOfficeId!, dto);
-  }
-
-  @Delete()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Req() req: Request): Promise<void> {
-    return this.service.deleteKey(req.authContext!.activeOfficeId!);
   }
 }

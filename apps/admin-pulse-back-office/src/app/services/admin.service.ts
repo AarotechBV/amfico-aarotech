@@ -7,13 +7,19 @@ export type AppRole = 'user' | 'admin' | 'super_admin';
 
 // ---------- Users ----------
 
+export interface UserOfficeRef {
+  id: string;
+  name: string;
+}
+
 export interface UserSummary {
   id: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   fullName: string | null;
   role: AppRole;
-  officeId: string | null;
-  officeName: string | null;
+  offices: UserOfficeRef[];
   isActive: boolean;
   lastSignInAt: string | null;
   createdAt: string;
@@ -21,16 +27,18 @@ export interface UserSummary {
 
 export interface CreateUserRequest {
   email: string;
-  fullName?: string;
+  firstName: string;
+  lastName?: string;
   password?: string;
   role: AppRole;
-  officeId?: string;
+  officeIds?: string[];
 }
 
 export interface UpdateUserRequest {
-  fullName?: string;
+  firstName?: string;
+  lastName?: string | null;
   role?: AppRole;
-  officeId?: string | null;
+  officeIds?: string[];
   isActive?: boolean;
 }
 
@@ -47,13 +55,13 @@ export interface OfficeSummary {
   isActive: boolean;
   userCount: number;
   hasApiKey: boolean;
-  apiKeyLabel: string | null;
   apiKeyLastUsedAt: string | null;
   createdAt: string;
 }
 
 export interface CreateOfficeRequest {
   name: string;
+  apiKey: string;
 }
 
 export interface UpdateOfficeRequest {
@@ -65,7 +73,6 @@ export interface UpdateOfficeRequest {
 
 export interface OfficeApiKeyMetadata {
   hasKey: boolean;
-  label: string | null;
   lastUsedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
@@ -73,7 +80,6 @@ export interface OfficeApiKeyMetadata {
 
 export interface SetOfficeApiKeyRequest {
   key: string;
-  label?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -150,12 +156,6 @@ export class AdminService {
       body,
       { headers: this.#officeHeader(officeId) },
     );
-  }
-
-  deleteOfficeApiKey(officeId: string): Observable<void> {
-    return this.#http.delete<void>(`${this.#base}/office/api-key`, {
-      headers: this.#officeHeader(officeId),
-    });
   }
 
   #officeHeader(officeId: string): HttpHeaders {

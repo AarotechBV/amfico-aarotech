@@ -65,6 +65,7 @@ import { AuthService } from '../../services/auth.service';
   `,
   styles: `
     :host {
+      box-sizing: border-box;
       display: grid;
       place-items: center;
       min-height: 100vh;

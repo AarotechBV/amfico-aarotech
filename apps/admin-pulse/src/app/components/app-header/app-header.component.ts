@@ -41,7 +41,7 @@ import { MeService } from '../../services/me.service';
         </nav>
       </div>
       <div class="right">
-        @if (isSuperAdmin()) {
+        @if (me.canSwitchOffice()) {
           <label class="office-switcher">
             <span class="sr-only">Actief kantoor</span>
             <select
@@ -54,6 +54,8 @@ import { MeService } from '../../services/me.service';
               }
             </select>
           </label>
+        } @else if (me.activeOffice(); as office) {
+          <span class="office-label" title="Actief kantoor">{{ office.name }}</span>
         }
         <button type="button" class="logout" (click)="onLogout()">Uitloggen</button>
       </div>
@@ -135,6 +137,19 @@ import { MeService } from '../../services/me.service';
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(46, 32, 129, 0.15);
     }
+    .office-label {
+      padding: 8px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      background: var(--color-bg-soft);
+      font-size: var(--fs-sm);
+      font-weight: var(--fw-medium);
+      color: var(--color-fg-muted);
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .sr-only {
       position: absolute;
       width: 1px; height: 1px;
@@ -168,7 +183,6 @@ export class AppHeaderComponent {
   readonly me = inject(MeService);
   readonly logout = output<void>();
 
-  isSuperAdmin = computed(() => this.me.role() === 'super_admin');
   canManageOffice = computed(() => {
     const r = this.me.role();
     return r === 'admin' || r === 'super_admin';

@@ -44,6 +44,14 @@
         <div class="badge badge--empty" aria-hidden="true">?</div>
         <p class="status-text">{{ statusMessage() }}</p>
       }
+      @case ('no-companies') {
+        <div class="badge badge--empty" aria-hidden="true">∅</div>
+        <p class="status-text">{{ statusMessage() }}</p>
+      }
+      @case ('no-selection') {
+        <div class="badge badge--empty" aria-hidden="true">?</div>
+        <p class="status-text">{{ statusMessage() }}</p>
+      }
       @case ('loading') {
         <div class="spinner" aria-hidden="true"></div>
         <p class="status-text">{{ statusMessage() }}</p>

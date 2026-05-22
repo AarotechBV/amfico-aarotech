@@ -62,8 +62,7 @@
               <td>{{ office.userCount }}</td>
               <td>
                 @if (office.hasApiKey) {
-                  <span class="dot dot--ok"></span>
-                  {{ office.apiKeyLabel || 'Ingesteld' }}
+                  <span class="dot dot--ok"></span>Ingesteld
                 } @else {
                   <span class="muted">Niet ingesteld</span>
                 }
@@ -116,6 +115,17 @@
               <span class="label">Naam</span>
               <input type="text" formControlName="name" />
             </label>
+            <label class="field">
+              <span class="label">AdminPulse API-sleutel</span>
+              <input
+                type="password"
+                formControlName="apiKey"
+                autocomplete="off"
+              />
+              <span class="hint">
+                Vereist — een kantoor zonder sleutel kan niets ophalen.
+              </span>
+            </label>
             <div class="actions">
               <button type="button" (click)="closeDialog()">Annuleren</button>
               <button
@@ -155,7 +165,6 @@
           <h2>API-sleutel — {{ d.office.name }}</h2>
           @if (d.metadata?.hasKey) {
             <div class="key-meta">
-              <p><strong>Label:</strong> {{ d.metadata?.label || '—' }}</p>
               <p>
                 <strong>Laatst gebruikt:</strong>
                 {{
@@ -170,8 +179,7 @@
               </p>
             </div>
             <p class="hint">
-              De sleutelwaarde is niet meer leesbaar. Vervang of
-              verwijder hieronder.
+              De sleutelwaarde is niet meer leesbaar. Vervang hieronder.
             </p>
           } @else {
             <p class="hint">Dit kantoor heeft nog geen API-sleutel.</p>
@@ -181,22 +189,8 @@
               <span class="label">Nieuwe sleutel</span>
               <input type="password" formControlName="key" autocomplete="off" />
             </label>
-            <label class="field">
-              <span class="label">Label (optioneel)</span>
-              <input type="text" formControlName="label" />
-            </label>
             <div class="actions">
               <button type="button" (click)="closeDialog()">Sluiten</button>
-              @if (d.metadata?.hasKey) {
-                <button
-                  type="button"
-                  class="danger"
-                  [disabled]="saving()"
-                  (click)="deleteApiKey()"
-                >
-                  Verwijderen
-                </button>
-              }
               <button
                 type="submit"
                 class="btn-primary"

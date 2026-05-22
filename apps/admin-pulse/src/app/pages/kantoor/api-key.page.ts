@@ -3,11 +3,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   signal,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   FormGroup,
@@ -29,13 +31,13 @@ import { MeService } from '../../services/me.service';
 })
 export class KantoorApiKeyPage {
   readonly #admin = inject(OfficeAdminService);
+  readonly #destroyRef = inject(DestroyRef);
   readonly me = inject(MeService);
 
   metadata = signal<OfficeApiKeyMetadata | null>(null);
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
   saving = signal(false);
-  showConfirmDelete = signal(false);
 
   hasActiveOffice = computed(() => !!this.me.activeOfficeId());
 
@@ -44,7 +46,6 @@ export class KantoorApiKeyPage {
       nonNullable: true,
       validators: [Validators.required, Validators.minLength(10)],
     }),
-    label: new FormControl('', { nonNullable: true }),
   });
 
   reloadOnActiveOffice = effect(() => {
@@ -59,7 +60,10 @@ export class KantoorApiKeyPage {
     if (!this.me.activeOfficeId()) return;
     this.isLoading.set(true);
     this.errorMessage.set(null);
-    this.#admin.getApiKey().subscribe({
+    this.#admin
+      .getApiKey()
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: (metadata) => {
         this.metadata.set(metadata);
         this.isLoading.set(false);
@@ -75,35 +79,21 @@ export class KantoorApiKeyPage {
 
   submit() {
     if (this.form.invalid) return;
-    const { key, label } = this.form.getRawValue();
+    const { key } = this.form.getRawValue();
     this.saving.set(true);
-    this.#admin.setApiKey({ key, label: label || undefined }).subscribe({
+    this.#admin
+      .setApiKey({ key })
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: (metadata) => {
         this.saving.set(false);
         this.metadata.set(metadata);
-        this.form.reset({ key: '', label: '' });
+        this.form.reset({ key: '' });
       },
       error: (err) => {
         this.saving.set(false);
         this.errorMessage.set(
           err?.error?.message ?? 'Kon sleutel niet opslaan.',
-        );
-      },
-    });
-  }
-
-  confirmDelete() {
-    this.saving.set(true);
-    this.#admin.deleteApiKey().subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.showConfirmDelete.set(false);
-        this.refresh();
-      },
-      error: (err) => {
-        this.saving.set(false);
-        this.errorMessage.set(
-          err?.error?.message ?? 'Kon sleutel niet verwijderen.',
         );
       },
     });

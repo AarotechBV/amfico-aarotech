@@ -3,11 +3,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   signal,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   FormGroup,
@@ -38,6 +40,7 @@ type Dialog =
 })
 export class KantoorUsersPage {
   readonly #admin = inject(OfficeAdminService);
+  readonly #destroyRef = inject(DestroyRef);
   readonly me = inject(MeService);
 
   users = signal<OfficeUserSummary[]>([]);
@@ -65,12 +68,20 @@ export class KantoorUsersPage {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    fullName: new FormControl('', { nonNullable: true }),
+    firstName: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(1)],
+    }),
+    lastName: new FormControl('', { nonNullable: true }),
     role: new FormControl<'user' | 'admin'>('user', { nonNullable: true }),
   });
 
   editForm = new FormGroup({
-    fullName: new FormControl('', { nonNullable: true }),
+    firstName: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(1)],
+    }),
+    lastName: new FormControl('', { nonNullable: true }),
     role: new FormControl<'user' | 'admin'>('user', { nonNullable: true }),
     isActive: new FormControl(true, { nonNullable: true }),
   });
@@ -82,7 +93,10 @@ export class KantoorUsersPage {
     }
     this.isLoading.set(true);
     this.errorMessage.set(null);
-    this.#admin.listUsers().subscribe({
+    this.#admin
+      .listUsers()
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: (users) => {
         this.users.set(users);
         this.isLoading.set(false);
@@ -109,13 +123,19 @@ export class KantoorUsersPage {
   }
 
   openCreate() {
-    this.createForm.reset({ email: '', fullName: '', role: 'user' });
+    this.createForm.reset({
+      email: '',
+      firstName: '',
+      lastName: '',
+      role: 'user',
+    });
     this.dialog.set({ kind: 'create' });
   }
 
   openEdit(user: OfficeUserSummary) {
     this.editForm.reset({
-      fullName: user.fullName ?? '',
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
       role: user.role === 'super_admin' ? 'admin' : user.role,
       isActive: user.isActive,
     });
@@ -136,14 +156,16 @@ export class KantoorUsersPage {
 
   submitCreate() {
     if (this.createForm.invalid) return;
-    const { email, fullName, role } = this.createForm.getRawValue();
+    const { email, firstName, lastName, role } = this.createForm.getRawValue();
     this.saving.set(true);
     this.#admin
       .createUser({
         email,
-        fullName: fullName || undefined,
+        firstName,
+        lastName: lastName || undefined,
         role,
       })
+      .pipe(takeUntilDestroyed(this.#destroyRef))
       .subscribe({
         next: (credential) => {
           this.saving.set(false);
@@ -165,7 +187,15 @@ export class KantoorUsersPage {
     if (this.editForm.invalid) return;
     const body = this.editForm.getRawValue();
     this.saving.set(true);
-    this.#admin.updateUser(d.user.id, body).subscribe({
+    this.#admin
+      .updateUser(d.user.id, {
+        firstName: body.firstName,
+        lastName: body.lastName || null,
+        role: body.role,
+        isActive: body.isActive,
+      })
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: () => {
         this.saving.set(false);
         this.refresh();
@@ -184,7 +214,10 @@ export class KantoorUsersPage {
     const d = this.dialog();
     if (d?.kind !== 'reset') return;
     this.saving.set(true);
-    this.#admin.resetPassword(d.user.id).subscribe({
+    this.#admin
+      .resetPassword(d.user.id)
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: (credential) => {
         this.saving.set(false);
         this.dialog.set({
@@ -206,7 +239,10 @@ export class KantoorUsersPage {
     const d = this.dialog();
     if (d?.kind !== 'delete') return;
     this.saving.set(true);
-    this.#admin.deleteUser(d.user.id).subscribe({
+    this.#admin
+      .deleteUser(d.user.id)
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: () => {
         this.saving.set(false);
         this.refresh();

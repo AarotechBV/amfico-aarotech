@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  MinLength,
 } from 'class-validator';
 
 export class CreateOfficeDto {
@@ -11,6 +12,14 @@ export class CreateOfficeDto {
   @IsString()
   @Length(1, 120)
   name!: string;
+
+  @ApiProperty({
+    description:
+      'AdminPulse API key for this office. Required: an office is unusable without it.',
+  })
+  @IsString()
+  @MinLength(10)
+  apiKey!: string;
 }
 
 export class UpdateOfficeDto {
@@ -32,7 +41,6 @@ export interface OfficeSummary {
   isActive: boolean;
   userCount: number;
   hasApiKey: boolean;
-  apiKeyLabel: string | null;
   apiKeyLastUsedAt: string | null;
   createdAt: string;
 }

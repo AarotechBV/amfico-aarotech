@@ -53,7 +53,6 @@
             <th>Naam</th>
             <th>E-mail</th>
             <th>Rol</th>
-            <th>Kantoor</th>
             <th>Status</th>
             <th>Laatste login</th>
             <th class="actions">Acties</th>
@@ -83,7 +82,6 @@
                   }
                 </span>
               </td>
-              <td>{{ user.officeName || '—' }}</td>
               <td>
                 @if (user.isActive) {
                   <span class="dot dot--ok"></span>Actief
@@ -143,10 +141,16 @@
               <span class="label">E-mail</span>
               <input type="email" formControlName="email" />
             </label>
-            <label class="field">
-              <span class="label">Volledige naam</span>
-              <input type="text" formControlName="fullName" />
-            </label>
+            <div class="field-row">
+              <label class="field">
+                <span class="label">Voornaam</span>
+                <input type="text" formControlName="firstName" />
+              </label>
+              <label class="field">
+                <span class="label">Achternaam</span>
+                <input type="text" formControlName="lastName" />
+              </label>
+            </div>
             <label class="field">
               <span class="label">Rol</span>
               <select formControlName="role">
@@ -156,15 +160,33 @@
               </select>
             </label>
             @if (createForm.controls.role.value !== 'super_admin') {
-              <label class="field">
-                <span class="label">Kantoor</span>
-                <select formControlName="officeId">
-                  <option value="" disabled>— kies een kantoor —</option>
+              <fieldset class="field">
+                <legend class="label">Kantoren</legend>
+                <div class="office-checkboxes">
                   @for (office of offices(); track office.id) {
-                    <option [value]="office.id">{{ office.name }}</option>
+                    <label class="checkbox">
+                      <input
+                        type="checkbox"
+                        [checked]="
+                          createForm.controls.officeIds.value.includes(office.id)
+                        "
+                        (change)="
+                          onOfficeCheckboxChange('create', office.id, $event)
+                        "
+                      />
+                      <span>{{ office.name }}</span>
+                    </label>
                   }
-                </select>
-              </label>
+                </div>
+                @if (
+                  createForm.controls.officeIds.dirty &&
+                  !createForm.controls.officeIds.value.length
+                ) {
+                  <span class="hint hint--error">
+                    Kies minstens één kantoor.
+                  </span>
+                }
+              </fieldset>
             }
             <p class="hint">
               Het wachtwoord wordt automatisch gegenereerd en eenmalig
@@ -185,10 +207,16 @@
         @case ('edit') {
           <h2>Gebruiker bewerken — {{ d.user.email }}</h2>
           <form [formGroup]="editForm" (ngSubmit)="submitEdit()" novalidate>
-            <label class="field">
-              <span class="label">Volledige naam</span>
-              <input type="text" formControlName="fullName" />
-            </label>
+            <div class="field-row">
+              <label class="field">
+                <span class="label">Voornaam</span>
+                <input type="text" formControlName="firstName" />
+              </label>
+              <label class="field">
+                <span class="label">Achternaam</span>
+                <input type="text" formControlName="lastName" />
+              </label>
+            </div>
             <label class="field">
               <span class="label">Rol</span>
               <select formControlName="role">
@@ -198,15 +226,33 @@
               </select>
             </label>
             @if (editForm.controls.role.value !== 'super_admin') {
-              <label class="field">
-                <span class="label">Kantoor</span>
-                <select formControlName="officeId">
-                  <option value="" disabled>— kies een kantoor —</option>
+              <fieldset class="field">
+                <legend class="label">Kantoren</legend>
+                <div class="office-checkboxes">
                   @for (office of offices(); track office.id) {
-                    <option [value]="office.id">{{ office.name }}</option>
+                    <label class="checkbox">
+                      <input
+                        type="checkbox"
+                        [checked]="
+                          editForm.controls.officeIds.value.includes(office.id)
+                        "
+                        (change)="
+                          onOfficeCheckboxChange('edit', office.id, $event)
+                        "
+                      />
+                      <span>{{ office.name }}</span>
+                    </label>
                   }
-                </select>
-              </label>
+                </div>
+                @if (
+                  editForm.controls.officeIds.dirty &&
+                  !editForm.controls.officeIds.value.length
+                ) {
+                  <span class="hint hint--error">
+                    Kies minstens één kantoor.
+                  </span>
+                }
+              </fieldset>
             }
             <label class="checkbox">
               <input type="checkbox" formControlName="isActive" />

@@ -19,11 +19,16 @@ export class CreateOfficeUserDto {
   @IsEmail()
   email!: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ example: 'Jan' })
+  @IsString()
+  @Length(1, 80)
+  firstName!: string;
+
+  @ApiPropertyOptional({ example: 'Janssens' })
   @IsOptional()
   @IsString()
-  @Length(1, 120)
-  fullName?: string;
+  @Length(1, 80)
+  lastName?: string;
 
   @ApiPropertyOptional({
     description: 'If omitted, a random password is generated and returned once.',
@@ -48,8 +53,14 @@ export class UpdateOfficeUserDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @Length(1, 120)
-  fullName?: string;
+  @Length(1, 80)
+  firstName?: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @Length(0, 80)
+  lastName?: string | null;
 
   @ApiPropertyOptional({ enum: OFFICE_ASSIGNABLE_ROLES })
   @IsOptional()

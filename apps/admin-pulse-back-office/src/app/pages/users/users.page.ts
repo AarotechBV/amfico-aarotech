@@ -3,11 +3,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   signal,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   FormGroup,
@@ -40,6 +42,7 @@ type Dialog =
 })
 export class UsersPage {
   readonly #admin = inject(AdminService);
+  readonly #destroyRef = inject(DestroyRef);
 
   users = signal<UserSummary[]>([]);
   offices = signal<OfficeSummary[]>([]);
@@ -54,7 +57,7 @@ export class UsersPage {
     const term = this.search().toLowerCase().trim();
     const office = this.officeFilter();
     return this.users().filter((u) => {
-      if (office && (u.officeId ?? '') !== office) return false;
+      if (office && !u.offices.some((o) => o.id === office)) return false;
       if (!term) return true;
       return (
         u.email.toLowerCase().includes(term) ||
@@ -68,15 +71,23 @@ export class UsersPage {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    fullName: new FormControl('', { nonNullable: true }),
+    firstName: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(1)],
+    }),
+    lastName: new FormControl('', { nonNullable: true }),
     role: new FormControl<AppRole>('user', { nonNullable: true }),
-    officeId: new FormControl<string>('', { nonNullable: true }),
+    officeIds: new FormControl<string[]>([], { nonNullable: true }),
   });
 
   editForm = new FormGroup({
-    fullName: new FormControl('', { nonNullable: true }),
+    firstName: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(1)],
+    }),
+    lastName: new FormControl('', { nonNullable: true }),
     role: new FormControl<AppRole>('user', { nonNullable: true }),
-    officeId: new FormControl<string>('', { nonNullable: true }),
+    officeIds: new FormControl<string[]>([], { nonNullable: true }),
     isActive: new FormControl(true, { nonNullable: true }),
   });
 
@@ -84,12 +95,26 @@ export class UsersPage {
   syncCreateOfficeRequirement = effect(() => {
     const role = this.createForm.controls.role.value;
     untracked(() => {
-      const ctrl = this.createForm.controls.officeId;
+      const ctrl = this.createForm.controls.officeIds;
       if (role === 'super_admin') {
-        ctrl.setValue('');
+        ctrl.setValue([]);
         ctrl.clearValidators();
       } else {
-        ctrl.setValidators(Validators.required);
+        ctrl.setValidators(nonEmptyArray);
+      }
+      ctrl.updateValueAndValidity({ emitEvent: false });
+    });
+  });
+
+  syncEditOfficeRequirement = effect(() => {
+    const role = this.editForm.controls.role.value;
+    untracked(() => {
+      const ctrl = this.editForm.controls.officeIds;
+      if (role === 'super_admin') {
+        ctrl.setValue([]);
+        ctrl.clearValidators();
+      } else {
+        ctrl.setValidators(nonEmptyArray);
       }
       ctrl.updateValueAndValidity({ emitEvent: false });
     });
@@ -105,7 +130,9 @@ export class UsersPage {
     forkJoin({
       users: this.#admin.listUsers(),
       offices: this.#admin.listOffices(),
-    }).subscribe({
+    })
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: ({ users, offices }) => {
         this.users.set(users);
         this.offices.set(offices);
@@ -120,11 +147,6 @@ export class UsersPage {
     });
   }
 
-  officeName(officeId: string | null): string {
-    if (!officeId) return '—';
-    return this.offices().find((o) => o.id === officeId)?.name ?? officeId;
-  }
-
   onSearch(event: Event) {
     this.search.set((event.target as HTMLInputElement).value);
   }
@@ -133,21 +155,43 @@ export class UsersPage {
     this.officeFilter.set((event.target as HTMLSelectElement).value);
   }
 
+  toggleOffice(form: 'create' | 'edit', officeId: string, checked: boolean) {
+    const ctrl =
+      form === 'create'
+        ? this.createForm.controls.officeIds
+        : this.editForm.controls.officeIds;
+    const current = ctrl.value;
+    const next = checked
+      ? current.includes(officeId)
+        ? current
+        : [...current, officeId]
+      : current.filter((id) => id !== officeId);
+    ctrl.setValue(next);
+    ctrl.markAsDirty();
+  }
+
+  onOfficeCheckboxChange(form: 'create' | 'edit', officeId: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.toggleOffice(form, officeId, checked);
+  }
+
   openCreate() {
     this.createForm.reset({
       email: '',
-      fullName: '',
+      firstName: '',
+      lastName: '',
       role: 'user',
-      officeId: '',
+      officeIds: [],
     });
     this.dialog.set({ kind: 'create' });
   }
 
   openEdit(user: UserSummary) {
     this.editForm.reset({
-      fullName: user.fullName ?? '',
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
       role: user.role,
-      officeId: user.officeId ?? '',
+      officeIds: user.offices.map((o) => o.id),
       isActive: user.isActive,
     });
     this.dialog.set({ kind: 'edit', user });
@@ -167,15 +211,18 @@ export class UsersPage {
 
   submitCreate() {
     if (this.createForm.invalid) return;
-    const { email, fullName, role, officeId } = this.createForm.getRawValue();
+    const { email, firstName, lastName, role, officeIds } =
+      this.createForm.getRawValue();
     this.saving.set(true);
     this.#admin
       .createUser({
         email,
-        fullName: fullName || undefined,
+        firstName,
+        lastName: lastName || undefined,
         role,
-        officeId: role === 'super_admin' ? undefined : officeId,
+        officeIds: role === 'super_admin' ? undefined : officeIds,
       })
+      .pipe(takeUntilDestroyed(this.#destroyRef))
       .subscribe({
         next: (credential) => {
           this.saving.set(false);
@@ -199,11 +246,13 @@ export class UsersPage {
     this.saving.set(true);
     this.#admin
       .updateUser(d.user.id, {
-        fullName: body.fullName,
+        firstName: body.firstName,
+        lastName: body.lastName || null,
         role: body.role,
-        officeId: body.role === 'super_admin' ? null : body.officeId || null,
+        officeIds: body.role === 'super_admin' ? [] : body.officeIds,
         isActive: body.isActive,
       })
+      .pipe(takeUntilDestroyed(this.#destroyRef))
       .subscribe({
         next: () => {
           this.saving.set(false);
@@ -223,7 +272,10 @@ export class UsersPage {
     const d = this.dialog();
     if (d?.kind !== 'reset') return;
     this.saving.set(true);
-    this.#admin.resetPassword(d.user.id).subscribe({
+    this.#admin
+      .resetPassword(d.user.id)
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: (credential) => {
         this.saving.set(false);
         this.dialog.set({
@@ -245,7 +297,10 @@ export class UsersPage {
     const d = this.dialog();
     if (d?.kind !== 'delete') return;
     this.saving.set(true);
-    this.#admin.deleteUser(d.user.id).subscribe({
+    this.#admin
+      .deleteUser(d.user.id)
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
       next: () => {
         this.saving.set(false);
         this.refresh();
@@ -267,4 +322,10 @@ export class UsersPage {
   copyToClipboard(value: string) {
     void navigator.clipboard.writeText(value);
   }
+}
+
+function nonEmptyArray(control: { value: unknown }) {
+  return Array.isArray(control.value) && control.value.length > 0
+    ? null
+    : { required: true };
 }

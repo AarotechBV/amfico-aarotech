@@ -7,7 +7,9 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { AppHeaderComponent } from './components/app-header/app-header.component';
 import { AuthService } from './services/auth.service';
 import { MeService } from './services/me.service';
@@ -53,8 +55,19 @@ export class AppComponent {
 
   rejectedReason = signal<string | null>(null);
 
+  readonly #currentUrl = toSignal(
+    this.#router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: this.#router.url },
+  );
+
   showChrome = computed(
-    () => !!this.#auth.accessToken() && this.#me.role() === 'super_admin',
+    () =>
+      !!this.#auth.accessToken() &&
+      this.#me.role() === 'super_admin' &&
+      !this.#currentUrl().startsWith('/login'),
   );
 
   /**

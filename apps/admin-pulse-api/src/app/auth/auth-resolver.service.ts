@@ -22,13 +22,17 @@ export interface SessionContext {
   userId: string;
   email: string;
   role: AppRole;
-  /** Profile's office_id. Null only for super_admin. */
-  homeOfficeId: string | null;
   /**
-   * The office to operate on. For admin/user it equals homeOfficeId.
-   * For super_admin it equals the X-Active-Office header value (or null
-   * when the header is absent). Office-scoped endpoints require this to
-   * be non-null.
+   * Office memberships from profile_offices. Empty for super_admin
+   * (tenant-less; switches via X-Active-Office).
+   */
+  officeIds: string[];
+  /**
+   * The office to operate on. For admin/user it's the X-Active-Office
+   * value (which must be one of officeIds) or, if absent, defaults to
+   * the single office when officeIds.length === 1. For super_admin it's
+   * the header value (or null when absent). Office-scoped endpoints
+   * require this to be non-null.
    */
   activeOfficeId: string | null;
   /**
@@ -83,7 +87,7 @@ export class AuthResolver {
 
     const { data: profile, error: profileErr } = await this.supabase
       .from('profiles')
-      .select('role_id, office_id, is_active')
+      .select('role_id, is_active')
       .eq('id', user.id)
       .single();
     if (profileErr || !profile) {
@@ -94,31 +98,52 @@ export class AuthResolver {
     }
 
     const role = profile.role_id as AppRole;
-    const homeOfficeId = profile.office_id as string | null;
+
+    let officeIds: string[] = [];
+    if (role !== 'super_admin') {
+      const { data: memberships, error: mErr } = await this.supabase
+        .from('profile_offices')
+        .select('office_id')
+        .eq('user_id', user.id);
+      if (mErr) {
+        throw new UnauthorizedException('Could not load office memberships');
+      }
+      officeIds = (memberships ?? []).map((m) => m.office_id as string);
+      if (officeIds.length === 0) {
+        throw new ForbiddenException(
+          'No offices assigned to this user. Contact an administrator.',
+        );
+      }
+    }
+
     const requestedActiveOffice = this.#readActiveOfficeHeader(request);
 
     let activeOfficeId: string | null;
     if (role === 'super_admin') {
       // super_admin can switch to any office (or none for cross-office work)
       activeOfficeId = requestedActiveOffice;
-    } else {
-      // admin / user is locked to their home office
-      if (
-        requestedActiveOffice &&
-        requestedActiveOffice !== homeOfficeId
-      ) {
+    } else if (requestedActiveOffice) {
+      if (!officeIds.includes(requestedActiveOffice)) {
         throw new ForbiddenException(
-          'Cannot act on another office than your own',
+          'Cannot act on an office you are not a member of',
         );
       }
-      activeOfficeId = homeOfficeId;
+      activeOfficeId = requestedActiveOffice;
+    } else if (officeIds.length === 1) {
+      // Single-office users get their one office implicitly
+      activeOfficeId = officeIds[0];
+    } else {
+      // Multi-office user without an explicit header: the frontend must
+      // pick one before hitting office-scoped endpoints. Endpoints that
+      // need it will fail via OfficeAdminGuard / AdminPulseAuthGuard.
+      activeOfficeId = null;
     }
 
     return {
       userId: user.id,
       email: user.email ?? '',
       role,
-      homeOfficeId,
+      officeIds,
       activeOfficeId,
     };
   }

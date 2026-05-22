@@ -35,7 +35,6 @@
       @if (metadata()?.hasKey) {
         <div class="key-meta">
           <p><strong>Status:</strong> Ingesteld</p>
-          <p><strong>Label:</strong> {{ metadata()?.label || '—' }}</p>
           <p>
             <strong>Laatst gebruikt:</strong>
             {{
@@ -50,8 +49,8 @@
           </p>
         </div>
         <p class="hint">
-          De sleutelwaarde is niet meer leesbaar. Vervang of verwijder
-          hieronder indien nodig.
+          De sleutelwaarde is niet meer leesbaar. Vervang hieronder indien
+          nodig.
         </p>
       } @else {
         <p class="hint">Er is nog geen API-sleutel ingesteld voor dit kantoor.</p>
@@ -62,46 +61,14 @@
           <span class="label">Nieuwe sleutel</span>
           <input type="password" formControlName="key" autocomplete="off" />
         </label>
-        <label class="field">
-          <span class="label">Label (optioneel)</span>
-          <input type="text" formControlName="label" />
-        </label>
         <div class="actions">
-          @if (metadata()?.hasKey && !showConfirmDelete()) {
-            <button
-              type="button"
-              class="danger"
-              [disabled]="saving()"
-              (click)="showConfirmDelete.set(true)"
-            >
-              Verwijderen
-            </button>
-          }
-          @if (showConfirmDelete()) {
-            <button
-              type="button"
-              [disabled]="saving()"
-              (click)="showConfirmDelete.set(false)"
-            >
-              Annuleren
-            </button>
-            <button
-              type="button"
-              class="danger"
-              [disabled]="saving()"
-              (click)="confirmDelete()"
-            >
-              {{ saving() ? 'Bezig…' : 'Definitief verwijderen' }}
-            </button>
-          } @else {
-            <button
-              type="submit"
-              class="btn-primary"
-              [disabled]="form.invalid || saving()"
-            >
-              {{ saving() ? 'Bezig…' : metadata()?.hasKey ? 'Vervangen' : 'Opslaan' }}
-            </button>
-          }
+          <button
+            type="submit"
+            class="btn-primary"
+            [disabled]="form.invalid || saving()"
+          >
+            {{ saving() ? 'Bezig…' : metadata()?.hasKey ? 'Vervangen' : 'Opslaan' }}
+          </button>
         </div>
       </form>
     </div>

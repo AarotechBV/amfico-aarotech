@@ -2,7 +2,6 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CryptoService } from '../auth/crypto.service';
@@ -22,7 +21,7 @@ export class OfficeApiKeyService {
   async getMetadata(officeId: string): Promise<OfficeApiKeyMetadata> {
     const { data, error } = await this.supabase
       .from('admin_pulse_keys')
-      .select('label, last_used_at, created_at, updated_at')
+      .select('last_used_at, created_at, updated_at')
       .eq('office_id', officeId)
       .maybeSingle();
     if (error) {
@@ -31,7 +30,6 @@ export class OfficeApiKeyService {
     if (!data) {
       return {
         hasKey: false,
-        label: null,
         lastUsedAt: null,
         createdAt: null,
         updatedAt: null,
@@ -39,7 +37,6 @@ export class OfficeApiKeyService {
     }
     return {
       hasKey: true,
-      label: data.label,
       lastUsedAt: data.last_used_at,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -57,7 +54,6 @@ export class OfficeApiKeyService {
         {
           office_id: officeId,
           encrypted_key: encrypted,
-          label: dto.label ?? null,
         },
         { onConflict: 'office_id' },
       );
@@ -65,15 +61,5 @@ export class OfficeApiKeyService {
       throw new InternalServerErrorException(error.message);
     }
     return this.getMetadata(officeId);
-  }
-
-  async deleteKey(officeId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('admin_pulse_keys')
-      .delete()
-      .eq('office_id', officeId);
-    if (error) {
-      throw new NotFoundException(error.message);
-    }
   }
 }

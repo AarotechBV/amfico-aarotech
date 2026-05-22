@@ -5,13 +5,20 @@ import { API_BASE_URL } from '../api-base-url.token';
 
 export type OfficeAssignableRole = 'user' | 'admin';
 
+export interface OfficeRef {
+  id: string;
+  name: string;
+}
+
 export interface OfficeUserSummary {
   id: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   fullName: string | null;
   role: OfficeAssignableRole | 'super_admin';
-  officeId: string | null;
-  officeName: string | null;
+  /** All offices the user belongs to (may include the active one + more). */
+  offices: OfficeRef[];
   isActive: boolean;
   lastSignInAt: string | null;
   createdAt: string;
@@ -19,13 +26,15 @@ export interface OfficeUserSummary {
 
 export interface CreateOfficeUserRequest {
   email: string;
-  fullName?: string;
+  firstName: string;
+  lastName?: string;
   password?: string;
   role?: OfficeAssignableRole;
 }
 
 export interface UpdateOfficeUserRequest {
-  fullName?: string;
+  firstName?: string;
+  lastName?: string | null;
   role?: OfficeAssignableRole;
   isActive?: boolean;
 }
@@ -37,7 +46,6 @@ export interface CredentialPayload {
 
 export interface OfficeApiKeyMetadata {
   hasKey: boolean;
-  label: string | null;
   lastUsedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
@@ -45,7 +53,6 @@ export interface OfficeApiKeyMetadata {
 
 export interface SetOfficeApiKeyRequest {
   key: string;
-  label?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -85,8 +92,5 @@ export class OfficeAdminService {
       `${this.#base}/office/api-key`,
       body,
     );
-  }
-  deleteApiKey(): Observable<void> {
-    return this.#http.delete<void>(`${this.#base}/office/api-key`);
   }
 }

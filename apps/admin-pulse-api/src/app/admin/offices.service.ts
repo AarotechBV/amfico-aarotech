@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { OfficeApiKeyService } from '../office/office-api-key.service';
 import { SUPABASE_ADMIN } from '../auth/supabase.module';
 import {
   CreateOfficeDto,
@@ -24,31 +25,31 @@ interface OfficeRow {
 export class OfficesService {
   constructor(
     @Inject(SUPABASE_ADMIN) private readonly supabase: SupabaseClient,
+    private readonly apiKeys: OfficeApiKeyService,
   ) {}
 
   async listOffices(): Promise<OfficeSummary[]> {
-    const [offices, profiles, keys] = await Promise.all([
+    const [offices, memberships, keys] = await Promise.all([
       this.supabase
         .from('offices')
         .select('id, name, is_active, created_at')
         .order('name'),
-      this.supabase.from('profiles').select('office_id'),
+      this.supabase.from('profile_offices').select('office_id'),
       this.supabase
         .from('admin_pulse_keys')
-        .select('office_id, label, last_used_at'),
+        .select('office_id, last_used_at'),
     ]);
 
     if (offices.error)
       throw new InternalServerErrorException(offices.error.message);
-    if (profiles.error)
-      throw new InternalServerErrorException(profiles.error.message);
+    if (memberships.error)
+      throw new InternalServerErrorException(memberships.error.message);
     if (keys.error)
       throw new InternalServerErrorException(keys.error.message);
 
     const counts = new Map<string, number>();
-    for (const p of profiles.data) {
-      if (!p.office_id) continue;
-      counts.set(p.office_id, (counts.get(p.office_id) ?? 0) + 1);
+    for (const m of memberships.data) {
+      counts.set(m.office_id, (counts.get(m.office_id) ?? 0) + 1);
     }
     const keyMap = new Map(keys.data.map((k) => [k.office_id, k]));
 
@@ -60,7 +61,6 @@ export class OfficesService {
         isActive: o.is_active,
         userCount: counts.get(o.id) ?? 0,
         hasApiKey: !!k,
-        apiKeyLabel: k?.label ?? null,
         apiKeyLastUsedAt: k?.last_used_at ?? null,
         createdAt: o.created_at,
       };
@@ -76,14 +76,25 @@ export class OfficesService {
     if (error || !data) {
       throw new BadRequestException(error?.message ?? 'Could not create office');
     }
+
+    let keyMetadata;
+    try {
+      keyMetadata = await this.apiKeys.upsertKey(data.id, {
+        key: dto.apiKey,
+      });
+    } catch (err) {
+      // Roll back the office so we don't leave a key-less stub
+      await this.supabase.from('offices').delete().eq('id', data.id);
+      throw err;
+    }
+
     return {
       id: data.id,
       name: data.name,
       isActive: data.is_active,
       userCount: 0,
-      hasApiKey: false,
-      apiKeyLabel: null,
-      apiKeyLastUsedAt: null,
+      hasApiKey: keyMetadata.hasKey,
+      apiKeyLastUsedAt: keyMetadata.lastUsedAt,
       createdAt: data.created_at,
     };
   }
@@ -103,10 +114,10 @@ export class OfficesService {
   }
 
   async deleteOffice(id: string): Promise<void> {
-    // Refuse if any user still belongs to this office
+    // Refuse if any user is still a member of this office
     const { count, error: countErr } = await this.supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
+      .from('profile_offices')
+      .select('user_id', { count: 'exact', head: true })
       .eq('office_id', id);
     if (countErr) throw new InternalServerErrorException(countErr.message);
     if ((count ?? 0) > 0) {

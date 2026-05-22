@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Request } from 'express';
+import { buildFullName } from '../admin/dtos/user.dto';
 import { AppRole } from './auth-resolver.service';
 import { SupabaseAuthGuard } from './guards/supabase-auth.guard';
 import { SUPABASE_ADMIN } from './supabase.module';
@@ -16,13 +17,17 @@ export interface OfficeSummary {
 export interface MeResponse {
   userId: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
+  /** Computed: trim(firstName + ' ' + lastName) or null if both empty. */
   fullName: string | null;
   role: AppRole;
-  homeOfficeId: string | null;
   /**
-   * For super_admin: every office in the system. For admin/user: only
-   * their home office. The frontend uses this to populate the office
-   * switcher (super_admin) or to show "Kantoor: X" (admin/user).
+   * Offices the user can act on. For admin/user: their memberships
+   * (from profile_offices). For super_admin: every office in the
+   * system. The frontend uses this to populate the office switcher
+   * (super_admin / multi-office) or to show a static label
+   * (single-office).
    */
   offices: OfficeSummary[];
 }
@@ -44,17 +49,20 @@ export class MeController {
 
     const { data: profile } = await this.supabase
       .from('profiles')
-      .select('full_name')
+      .select('first_name, last_name')
       .eq('id', ctx.userId)
       .single();
+
+    const firstName = (profile?.first_name as string | null) ?? null;
+    const lastName = (profile?.last_name as string | null) ?? null;
 
     let officesQuery = this.supabase
       .from('offices')
       .select('id, name, is_active, admin_pulse_keys(office_id)')
       .order('name');
 
-    if (ctx.role !== 'super_admin' && ctx.homeOfficeId) {
-      officesQuery = officesQuery.eq('id', ctx.homeOfficeId);
+    if (ctx.role !== 'super_admin') {
+      officesQuery = officesQuery.in('id', ctx.officeIds);
     }
 
     const { data: rows } = await officesQuery;
@@ -70,9 +78,10 @@ export class MeController {
     return {
       userId: ctx.userId,
       email: ctx.email,
-      fullName: profile?.full_name ?? null,
+      firstName,
+      lastName,
+      fullName: buildFullName(firstName, lastName),
       role: ctx.role,
-      homeOfficeId: ctx.homeOfficeId,
       offices,
     };
   }

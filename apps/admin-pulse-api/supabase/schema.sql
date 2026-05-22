@@ -60,7 +60,6 @@ create table if not exists public.admin_pulse_keys (
   id              uuid primary key default gen_random_uuid(),
   office_id       uuid not null unique references public.offices(id) on delete cascade,
   encrypted_key   text not null,
-  label           text,
   last_used_at    timestamptz,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()

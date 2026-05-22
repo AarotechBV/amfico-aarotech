@@ -52,10 +52,11 @@ export class OfficeUsersController {
   ): Promise<CredentialPayload> {
     return this.users.createUser({
       email: dto.email,
-      fullName: dto.fullName,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       password: dto.password,
       role: dto.role ?? 'user',
-      officeId: req.authContext!.activeOfficeId!,
+      officeIds: [req.authContext!.activeOfficeId!],
     });
   }
 
@@ -69,7 +70,8 @@ export class OfficeUsersController {
     await this.users.assertExists(id);
     await this.users.assertBelongsToOffice(id, officeId);
     return this.users.updateUser(id, {
-      fullName: dto.fullName,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       role: dto.role,
       isActive: dto.isActive,
     });
@@ -87,6 +89,12 @@ export class OfficeUsersController {
     return this.users.resetPassword(id, dto.password);
   }
 
+  /**
+   * Office-scoped delete: removes the user from THIS office only. If
+   * this was their last office, the auth user is deleted as well. Office
+   * admins managing multi-office users should not be able to wipe an
+   * account that belongs to other offices too.
+   */
   @Delete(':id')
   async delete(
     @Req() req: Request,
@@ -95,6 +103,6 @@ export class OfficeUsersController {
     const officeId = req.authContext!.activeOfficeId!;
     await this.users.assertExists(id);
     await this.users.assertBelongsToOffice(id, officeId);
-    return this.users.deleteUser(id);
+    return this.users.removeUserFromOffice(id, officeId);
   }
 }

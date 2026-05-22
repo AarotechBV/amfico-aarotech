@@ -2,11 +2,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   signal,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { CompanyDto } from '@amfico@aarotech/admin-pulse-shared';
 import type { TCreatedPdf } from 'pdfmake/interfaces';
@@ -30,6 +32,7 @@ export class RegistrationsOverviewPage {
   readonly #companiesService = inject(CompaniesService);
   readonly #overview = inject(OverviewService);
   readonly #pdfService = inject(RegistrationsPdfService);
+  readonly #destroyRef = inject(DestroyRef);
   readonly me = inject(MeService);
 
   registrationDateUntil = signal<Date | null>(endOfLastMonth());
@@ -44,26 +47,43 @@ export class RegistrationsOverviewPage {
   isLoadingOverview = signal(false);
   errors = signal<string[]>([]);
 
-  status = computed<'no-office' | 'loading' | 'empty' | 'ready'>(() => {
+  status = computed<
+    | 'no-office'
+    | 'loading'
+    | 'no-companies'
+    | 'no-selection'
+    | 'empty'
+    | 'ready'
+  >(() => {
     if (!this.me.activeOfficeId()) return 'no-office';
-    if (this.isLoadingCompanies() || this.isLoadingOverview() || !this.pdf()) {
-      return 'loading';
-    }
+    if (this.isLoadingCompanies() || this.isLoadingOverview()) return 'loading';
+    if (!this.companies().length) return 'no-companies';
+    if (!this.selectedCompanyId()) return 'no-selection';
+    // Companies loaded + a company is selected. PDF is built synchronously
+    // after the overview response, so the only remaining gap is the brief
+    // moment between response arrival and pdf creation.
+    if (!this.pdf()) return 'loading';
     if (!this.response()?.relations.length) return 'empty';
     return 'ready';
   });
 
   statusMessage = computed(() => {
-    if (!this.me.activeOfficeId()) {
-      return 'Kies een kantoor in de header om verder te gaan.';
+    switch (this.status()) {
+      case 'no-office':
+        return 'Kies een kantoor in de header om verder te gaan.';
+      case 'loading':
+        if (this.isLoadingCompanies()) return 'Bedrijven ophalen…';
+        if (this.isLoadingOverview()) return 'Registraties ophalen…';
+        return 'PDF aan het opbouwen…';
+      case 'no-companies':
+        return 'Geen bedrijven gevonden voor dit kantoor.';
+      case 'no-selection':
+        return 'Kies een bedrijf om verder te gaan.';
+      case 'empty':
+        return 'Geen registraties gevonden voor deze selectie.';
+      case 'ready':
+        return 'PDF is klaar om te downloaden.';
     }
-    if (this.isLoadingCompanies()) return 'Bedrijven ophalen…';
-    if (this.isLoadingOverview()) return 'Registraties ophalen…';
-    if (!this.pdf()) return 'PDF aan het opbouwen…';
-    if (!this.response()?.relations.length) {
-      return 'Geen registraties gevonden voor deze selectie.';
-    }
-    return 'PDF is klaar om te downloaden.';
   });
 
   /**
@@ -109,6 +129,7 @@ export class RegistrationsOverviewPage {
           companyId,
           invoiced,
         })
+        .pipe(takeUntilDestroyed(this.#destroyRef))
         .subscribe({
           next: (response) => {
             this.response.set(response);
@@ -125,16 +146,19 @@ export class RegistrationsOverviewPage {
 
   #loadCompanies() {
     this.isLoadingCompanies.set(true);
-    this.#companiesService.listAll().subscribe({
-      next: (companies) => {
-        this.companies.set(companies);
-        this.isLoadingCompanies.set(false);
-      },
-      error: (err) => {
-        this.#pushError('companies', err);
-        this.isLoadingCompanies.set(false);
-      },
-    });
+    this.#companiesService
+      .listAll()
+      .pipe(takeUntilDestroyed(this.#destroyRef))
+      .subscribe({
+        next: (companies) => {
+          this.companies.set(companies);
+          this.isLoadingCompanies.set(false);
+        },
+        error: (err) => {
+          this.#pushError('companies', err);
+          this.isLoadingCompanies.set(false);
+        },
+      });
   }
 
   #buildPdf(response: RegistrationsOverviewResponse, date: Date) {

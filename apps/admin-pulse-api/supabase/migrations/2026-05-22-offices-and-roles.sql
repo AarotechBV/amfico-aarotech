@@ -79,6 +79,11 @@ alter table public.profiles
   alter column role_id set not null,
   alter column role_id set default 'user';
 
+-- Drop policies that depend on the old `role` column before dropping it
+-- (recreated in step 6 against role_id).
+drop policy if exists profiles_self_read on public.profiles;
+drop policy if exists profiles_self_update on public.profiles;
+
 -- Drop the old `role` text column + its check constraint (if any)
 alter table public.profiles drop column if exists role;
 
@@ -88,32 +93,22 @@ alter table public.profiles
   add column if not exists office_id uuid references public.offices(id) on delete restrict;
 
 -- Backfill every profile to the default office (the one we created above,
--- which by definition is the oldest if there are others now)
+-- which by definition is the oldest if there are others now).
+-- NOTE: we do NOT promote super_admin here yet — it has to happen AFTER
+-- the API-key migration below, otherwise the soon-to-be super_admin's
+-- per-user key has no profile.office_id to map to and would be lost.
 update public.profiles
 set office_id = (select id from public.offices order by created_at limit 1)
 where office_id is null;
-
--- Promote aaron@aarotech.be to super_admin AND clear his office_id
--- (super_admin's are tenant-less; they switch context via X-Active-Office)
-update public.profiles
-set role_id = 'super_admin', office_id = null
-where id = (select id from auth.users where email = 'aaron@aarotech.be');
-
--- Invariant: super_admin ↔ office_id IS NULL; everyone else has an office
-alter table public.profiles drop constraint if exists chk_role_office_consistency;
-alter table public.profiles
-  add constraint chk_role_office_consistency check (
-    (role_id = 'super_admin' and office_id is null)
-    or (role_id <> 'super_admin' and office_id is not null)
-  );
 
 -- ---------- 5. API keys: per office ----------
 
 alter table public.admin_pulse_keys
   add column if not exists office_id uuid references public.offices(id) on delete cascade;
 
--- Move existing per-user keys to their user's office (if user_id col still
--- exists). super_admin's per-user key has no home in the new model — drop.
+-- Move existing per-user keys to their user's office. At this point every
+-- profile still has office_id set (super_admin promotion happens below),
+-- so every existing key gets migrated cleanly.
 do $$
 begin
   if exists (
@@ -131,6 +126,22 @@ begin
   end if;
 end $$;
 
+-- ---------- 6. Promote aaron + add CHECK constraint ----------
+
+-- Promote aaron@aarotech.be to super_admin AND clear his office_id
+-- (super_admin's are tenant-less; they switch context via X-Active-Office)
+update public.profiles
+set role_id = 'super_admin', office_id = null
+where id = (select id from auth.users where email = 'aaron@aarotech.be');
+
+-- Invariant: super_admin ↔ office_id IS NULL; everyone else has an office
+alter table public.profiles drop constraint if exists chk_role_office_consistency;
+alter table public.profiles
+  add constraint chk_role_office_consistency check (
+    (role_id = 'super_admin' and office_id is null)
+    or (role_id <> 'super_admin' and office_id is not null)
+  );
+
 alter table public.admin_pulse_keys
   alter column office_id set not null;
 
@@ -144,7 +155,7 @@ create unique index if not exists admin_pulse_keys_office_id_key
 
 alter table public.admin_pulse_keys drop column if exists user_id;
 
--- ---------- 6. RLS policies (profiles) ----------
+-- ---------- 7. RLS policies (profiles) ----------
 
 -- The role-check moves from `role` (text col) to `role_id` (FK).
 -- NestJS still uses the service_role key and bypasses RLS; this is for
@@ -163,7 +174,7 @@ drop policy if exists profiles_self_update on public.profiles;
 create policy profiles_self_update on public.profiles
   for update using (auth.uid() = id);
 
--- ---------- 7. RLS on offices + roles (read-only to authenticated) ----------
+-- ---------- 8. RLS on offices + roles (read-only to authenticated) ----------
 
 alter table public.offices enable row level security;
 alter table public.roles enable row level security;

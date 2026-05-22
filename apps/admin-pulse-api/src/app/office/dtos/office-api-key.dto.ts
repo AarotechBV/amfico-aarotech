@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Length, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, MinLength } from 'class-validator';
 
 export class SetOfficeApiKeyDto {
   @ApiProperty({
@@ -9,17 +9,10 @@ export class SetOfficeApiKeyDto {
   @IsString()
   @MinLength(10)
   key!: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @Length(0, 120)
-  label?: string;
 }
 
 export interface OfficeApiKeyMetadata {
   hasKey: boolean;
-  label: string | null;
   lastUsedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;

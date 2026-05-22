@@ -130,10 +130,16 @@
               <span class="label">E-mail</span>
               <input type="email" formControlName="email" />
             </label>
-            <label class="field">
-              <span class="label">Volledige naam</span>
-              <input type="text" formControlName="fullName" />
-            </label>
+            <div class="field-row">
+              <label class="field">
+                <span class="label">Voornaam</span>
+                <input type="text" formControlName="firstName" />
+              </label>
+              <label class="field">
+                <span class="label">Achternaam</span>
+                <input type="text" formControlName="lastName" />
+              </label>
+            </div>
             <label class="field">
               <span class="label">Rol</span>
               <select formControlName="role">
@@ -160,10 +166,16 @@
         @case ('edit') {
           <h2>Gebruiker bewerken — {{ d.user.email }}</h2>
           <form [formGroup]="editForm" (ngSubmit)="submitEdit()" novalidate>
-            <label class="field">
-              <span class="label">Volledige naam</span>
-              <input type="text" formControlName="fullName" />
-            </label>
+            <div class="field-row">
+              <label class="field">
+                <span class="label">Voornaam</span>
+                <input type="text" formControlName="firstName" />
+              </label>
+              <label class="field">
+                <span class="label">Achternaam</span>
+                <input type="text" formControlName="lastName" />
+              </label>
+            </div>
             <label class="field">
               <span class="label">Rol</span>
               <select formControlName="role">
@@ -206,11 +218,22 @@
           </div>
         }
         @case ('delete') {
-          <h2>Gebruiker verwijderen</h2>
+          <h2>Gebruiker uit kantoor verwijderen</h2>
           <p>
-            Weet u zeker dat u <strong>{{ d.user.email }}</strong> wilt
-            verwijderen? Dit is permanent.
+            Weet u zeker dat u <strong>{{ d.user.email }}</strong> uit dit
+            kantoor wilt verwijderen?
           </p>
+          @if (d.user.offices.length <= 1) {
+            <p class="hint">
+              Deze gebruiker is alleen lid van dit kantoor. Het account
+              wordt volledig verwijderd.
+            </p>
+          } @else {
+            <p class="hint">
+              De gebruiker blijft toegang houden tot
+              {{ d.user.offices.length - 1 }} ander kantoor.
+            </p>
+          }
           <div class="actions">
             <button type="button" (click)="closeDialog()">Annuleren</button>
             <button
@@ -219,7 +242,7 @@
               [disabled]="saving()"
               (click)="confirmDelete()"
             >
-              {{ saving() ? 'Bezig…' : 'Definitief verwijderen' }}
+              {{ saving() ? 'Bezig…' : 'Verwijderen' }}
             </button>
           </div>
         }
