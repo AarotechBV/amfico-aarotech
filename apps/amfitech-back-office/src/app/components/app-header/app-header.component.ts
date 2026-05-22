@@ -88,7 +88,7 @@ import { AuthService } from '../../services/auth.service';
 
     .brand {
       display: inline-flex;
-      align-items: baseline;
+      align-items: center;
       gap: var(--space-2);
       color: var(--color-primary);
       text-decoration: none;

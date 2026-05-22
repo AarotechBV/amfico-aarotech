@@ -115,7 +115,7 @@ import { AuthService } from '../../services/auth.service';
 
     .brand {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: var(--space-2);
       margin-bottom: var(--space-2);
     }

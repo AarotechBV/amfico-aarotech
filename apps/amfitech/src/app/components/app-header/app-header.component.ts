@@ -103,7 +103,7 @@ import { MeService } from '../../services/me.service';
     .left { gap: clamp(16px, 4vw, 40px); }
     .brand {
       display: inline-flex;
-      align-items: baseline;
+      align-items: center;
       gap: var(--space-2);
       color: var(--color-primary);
       text-decoration: none;
