@@ -7,15 +7,10 @@
   "tags": [],
   "targets": {
     "build": {
-      "executor": "@angular-devkit/build-angular:application",
+      "executor": "@angular/build:application",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "baseHref": "/amfico-aarotech/admin-pulse/",
-        "outputPath": {
-          "base": "dist/apps/admin-pulse",
-          "browser": ""
-        },
-        "index": "apps/admin-pulse/src/index.html",
+        "outputPath": "dist/apps/admin-pulse",
         "browser": "apps/admin-pulse/src/main.ts",
         "polyfills": [],
         "tsConfig": "apps/admin-pulse/tsconfig.app.json",
@@ -50,7 +45,13 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/admin-pulse/src/environments/environment.ts",
+              "with": "apps/admin-pulse/src/environments/environment.prod.ts"
+            }
+          ]
         },
         "development": {
           "optimization": false,
@@ -61,7 +62,8 @@
       "defaultConfiguration": "production"
     },
     "serve": {
-      "executor": "@angular-devkit/build-angular:dev-server",
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
       "options": {
         "hmr": true
       },
@@ -73,11 +75,10 @@
           "buildTarget": "admin-pulse:build:development"
         }
       },
-      "defaultConfiguration": "development",
-      "continuous": true
+      "defaultConfiguration": "development"
     },
     "extract-i18n": {
-      "executor": "@angular-devkit/build-angular:extract-i18n",
+      "executor": "@angular/build:extract-i18n",
       "options": {
         "buildTarget": "admin-pulse:build"
       }
@@ -94,6 +95,7 @@
       }
     },
     "serve-static": {
+      "continuous": true,
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "admin-pulse:build",

@@ -1,6 +1,7 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -17,5 +18,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }),
     }),
   ],
+  controllers: [HealthController],
 })
 export class CoreModule {}

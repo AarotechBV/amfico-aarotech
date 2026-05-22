@@ -18,11 +18,6 @@
     "sharedGlobals": []
   },
   "targetDefaults": {
-    "@angular-devkit/build-angular:application": {
-      "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["production", "^production"]
-    },
     "@nx/eslint:lint": {
       "cache": true,
       "inputs": [
