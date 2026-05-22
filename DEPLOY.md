@@ -62,11 +62,15 @@ pasting the secret values.
    - **Production branch**: `main`
    - **Build command**:
      ```
-     npm install --legacy-peer-deps && npx nx build amfitech --configuration=production
+     npx nx build amfitech --configuration=production
      ```
    - **Build output directory**: `dist/apps/amfitech/browser`
    - **Root directory**: leave blank (workspace root)
-   - **Environment variables**: none required (Angular bakes them at build time)
+   - **Environment variables**:
+     - `NPM_FLAGS` = `--include=dev` (Cloudflare's auto-install runs
+       with NODE_ENV=production by default, which skips
+       devDependencies — Nx lives there, so without this flag the
+       build fails with "Could not find Nx modules")
 4. **Save and Deploy**. First build is ~3–4 min.
 5. Visit the assigned URL (e.g. `https://amfitech.pages.dev`) and confirm the login page loads. *Don't try to log in yet — backend CORS still needs the URL.*
 
@@ -77,8 +81,9 @@ pasting the secret values.
 Same flow, just swap names:
 
 - **Project name**: `amfitech-back-office`
-- **Build command**: `npm install --legacy-peer-deps && npx nx build amfitech-back-office --configuration=production`
+- **Build command**: `npx nx build amfitech-back-office --configuration=production`
 - **Build output directory**: `dist/apps/amfitech-back-office/browser`
+- **Environment variables**: `NPM_FLAGS` = `--include=dev` (same reason as `amfitech`)
 
 Build, copy the resulting URL.
 
