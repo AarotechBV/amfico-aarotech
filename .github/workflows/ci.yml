@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-progress run when a new commit lands on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # `nx affected` against the base ref shrinks PR runs; on push to
+      # main this falls back to the parent commit so we still validate
+      # whatever just landed.
+      - name: Set Nx base/head SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Lint affected projects
+        run: npx nx affected -t lint --parallel=3
+
+      - name: Build affected projects
+        run: npx nx affected -t build --parallel=3 --configuration=production

@@ -28,41 +28,28 @@ Total: **€0/month** for the volumes an internal tool reaches.
 
 ## Step 1 — Deploy the NestJS backend on Render
 
+The repo ships a `render.yaml` Blueprint. Render reads it and pre-fills
+build/start/health/env-keys; the only things you do by hand are
+pasting the secret values.
+
 1. Sign in at https://render.com with the GitHub account that owns the repo.
-2. **New +** → **Web Service** → Connect repository → pick `amfico-aarotech`.
-3. Fill in:
-   - **Name**: `amfitech-api` (becomes `https://amfitech-api.onrender.com` — match the URL in the Angular `environment.prod.ts`)
-   - **Branch**: `main`
-   - **Runtime**: `Node`
-   - **Build Command**:
-     ```
-     npm install --legacy-peer-deps && npx nx build amfitech-api --configuration=production
-     ```
-   - **Start Command**:
-     ```
-     node dist/apps/amfitech-api/main.js
-     ```
-   - **Plan**: Free
-   - **Health Check Path**: `/api/health`
-4. Click **Advanced** and add environment variables:
-
-   | Key | Value |
-   |---|---|
-   | `NODE_VERSION` | `22` |
-   | `PORT` | `10000` *(Render injects automatically; this is just a hint)* |
-   | `FRONTEND_ORIGINS` | leave blank for now — fill in step 4 |
-   | `ADMIN_PULSE_BASE_URL` | `https://api.adminpulse.be` |
-   | `ADMIN_PULSE_TIMEOUT_MS` | `30000` |
-   | `CACHE_TTL_MS` | `300000` |
-   | `SUPABASE_URL` | `https://gvwjmrfsbnwyhagectdx.supabase.co` |
-   | `SUPABASE_ANON_KEY` | *(value from `.env`)* |
-   | `SUPABASE_SERVICE_ROLE_KEY` | **rotated value from `.env`** |
-   | `ENCRYPTION_KEY` | **exact 64-char hex from `.env`** |
-
-5. **Create Web Service**. Wait for the first build (~3–5 min).
-6. Visit `https://<your-service>.onrender.com/api/health` — you should see `{ "ok": true, "uptimeSeconds": …, "timestamp": "…" }`.
-7. Also try `https://<your-service>.onrender.com/api/docs` — Swagger UI for the backend.
-8. **Copy the service URL**. If it's not `https://amfitech-api.onrender.com`, update `apiBaseUrl` in `apps/amfitech/src/environments/environment.prod.ts` AND `apps/amfitech-back-office/src/environments/environment.prod.ts`, then commit + push.
+2. **New +** → **Blueprint** → connect repository → pick `amfico-aarotech`.
+3. Render parses `render.yaml` and shows the service it will create
+   (`amfitech-api` in `frankfurt`, Node 22, free plan,
+   health check `/api/health`).
+4. Render prompts for the three secrets marked `sync: false`:
+   - `SUPABASE_SERVICE_ROLE_KEY` — rotated value from `.env`
+   - `ENCRYPTION_KEY` — 64-char hex from `.env` (password-manager backup)
+   - `FRONTEND_ORIGINS` — leave blank for now, fill in Step 4 once
+     Cloudflare Pages URLs exist
+5. **Apply**. Wait for the first build (~3–5 min). Swagger UI is
+   intentionally disabled in production; the OpenAPI spec lives
+   locally via `nx serve amfitech-api` → `/api/docs`.
+6. Visit `https://<your-service>.onrender.com/api/health` — you should
+   see `{ "ok": true, "uptimeSeconds": …, "timestamp": "…" }`.
+7. **Copy the service URL**. If it's not `https://amfitech-api.onrender.com`,
+   update `apiBaseUrl` in both `environment.prod.ts` files, commit +
+   push.
 
 ---
 

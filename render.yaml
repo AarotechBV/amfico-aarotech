@@ -1,0 +1,50 @@
+# Render Blueprint — connect this repo via "New +" → "Blueprint" on
+# Render and the dashboard prefills everything below.
+#
+# Secrets are marked `sync: false` so Render prompts for them once
+# during creation (and stores them encrypted in the dashboard, never
+# in this file or in git).
+
+services:
+  - type: web
+    name: amfitech-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    autoDeploy: true
+    rootDir: .
+    buildCommand: npm install --legacy-peer-deps && npx nx build amfitech-api --configuration=production
+    startCommand: node dist/apps/amfitech-api/main.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+
+      # ---- Frontend origins (set once Cloudflare Pages URLs are known) ----
+      - key: FRONTEND_ORIGINS
+        sync: false
+
+      # ---- AdminPulse upstream ----
+      - key: ADMIN_PULSE_BASE_URL
+        value: https://api.adminpulse.be
+      - key: ADMIN_PULSE_TIMEOUT_MS
+        value: "30000"
+
+      # ---- Cache ----
+      - key: CACHE_TTL_MS
+        value: "300000"
+
+      # ---- Supabase ----
+      - key: SUPABASE_URL
+        value: https://gvwjmrfsbnwyhagectdx.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2d2ptcmZzYm53eWhhZ2VjdGR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTU2NDMsImV4cCI6MjA5NDkzMTY0M30.9MFahDPmkiMh0Rsl4QSCDQhUVCHi6JyMZSIBo4X6lBw
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # ---- API-key encryption (64-char hex, from .env / password manager) ----
+      - key: ENCRYPTION_KEY
+        sync: false
