@@ -21,6 +21,26 @@ import { AuthService } from '../../services/auth.service';
       <div class="ribbon" aria-hidden="true"></div>
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <div class="brand">
+          <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+            <defs>
+              <linearGradient id="amf-login-mark-bo" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#2e2081" />
+                <stop offset="50%" stop-color="#661e57" />
+                <stop offset="100%" stop-color="#c53023" />
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="7" ry="7" fill="url(#amf-login-mark-bo)" />
+            <text
+              x="16"
+              y="23"
+              text-anchor="middle"
+              fill="#ffffff"
+              font-family="Quicksand, system-ui, sans-serif"
+              font-weight="700"
+              font-size="22"
+              letter-spacing="-0.5"
+            >a</text>
+          </svg>
           <span class="wordmark">amfitech</span>
           <span class="suffix">Back Office</span>
         </div>
@@ -97,6 +117,11 @@ import { AuthService } from '../../services/auth.service';
       align-items: baseline;
       gap: var(--space-2);
       margin-bottom: var(--space-2);
+    }
+    .mark {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
     }
     .wordmark {
       font-family: var(--font-display);

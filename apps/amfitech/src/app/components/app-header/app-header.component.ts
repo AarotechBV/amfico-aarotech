@@ -18,6 +18,26 @@ import { MeService } from '../../services/me.service';
     <div class="bar">
       <div class="left">
         <a routerLink="/rapporten/registraties" class="brand">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <defs>
+              <linearGradient id="amf-brand-mark" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#2e2081" />
+                <stop offset="50%" stop-color="#661e57" />
+                <stop offset="100%" stop-color="#c53023" />
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="7" ry="7" fill="url(#amf-brand-mark)" />
+            <text
+              x="16"
+              y="23"
+              text-anchor="middle"
+              fill="#ffffff"
+              font-family="Quicksand, system-ui, sans-serif"
+              font-weight="700"
+              font-size="22"
+              letter-spacing="-0.5"
+            >a</text>
+          </svg>
           <span class="brand-wordmark">amfitech</span>
         </a>
         <nav class="primary-nav" aria-label="Hoofdmenu">
@@ -90,6 +110,11 @@ import { MeService } from '../../services/me.service';
       transition: color var(--dur-base) var(--ease-out);
     }
     .brand:hover { color: var(--color-link-hover); }
+    .brand-mark {
+      width: clamp(26px, 3vw, 32px);
+      height: clamp(26px, 3vw, 32px);
+      flex-shrink: 0;
+    }
     .brand-wordmark {
       font-family: var(--font-display);
       font-weight: var(--fw-bold);
