@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanMatchFn, Route, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 
-const DEFAULT_AUTHENTICATED_ROUTE = '/gebruikers';
+const DEFAULT_AUTHENTICATED_ROUTE = '/kantoren';
 
 const requireSession: CanMatchFn = () => {
   const auth = inject(AuthService);
@@ -22,6 +22,12 @@ export const appRoutes: Route[] = [
     canMatch: [requireNoSession],
     loadComponent: () =>
       import('./pages/login/login.page').then((p) => p.LoginPage),
+  },
+  {
+    path: 'kantoren',
+    canMatch: [requireSession],
+    loadComponent: () =>
+      import('./pages/offices/offices.page').then((p) => p.OfficesPage),
   },
   {
     path: 'gebruikers',

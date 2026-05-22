@@ -1,0 +1,237 @@
+@if (errorMessage(); as msg) {
+  <div class="errors" role="alert">
+    <strong>Er ging iets mis</strong>
+    <p>{{ msg }}</p>
+    <button type="button" (click)="clearError()">Sluiten</button>
+  </div>
+}
+
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>Kantoren</h1>
+      <p class="lead">Beheer kantoren en hun AdminPulse API-sleutel.</p>
+    </div>
+    <div class="head-actions">
+      <input
+        class="search"
+        type="search"
+        placeholder="Zoeken op naam…"
+        [value]="search()"
+        (input)="onSearch($event)"
+      />
+      <button type="button" class="btn-primary" (click)="openCreate()">
+        Nieuw kantoor
+      </button>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <div class="card status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Kantoren laden…</p>
+    </div>
+  } @else if (!filteredOffices().length) {
+    <div class="card status">
+      <p>Geen kantoren gevonden.</p>
+    </div>
+  } @else {
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Naam</th>
+            <th>Status</th>
+            <th>Gebruikers</th>
+            <th>API-sleutel</th>
+            <th>Aangemaakt</th>
+            <th class="actions">Acties</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (office of filteredOffices(); track office.id) {
+            <tr [class.inactive]="!office.isActive">
+              <td>{{ office.name }}</td>
+              <td>
+                @if (office.isActive) {
+                  <span class="dot dot--ok"></span>Actief
+                } @else {
+                  <span class="dot dot--off"></span>Inactief
+                }
+              </td>
+              <td>{{ office.userCount }}</td>
+              <td>
+                @if (office.hasApiKey) {
+                  <span class="dot dot--ok"></span>
+                  {{ office.apiKeyLabel || 'Ingesteld' }}
+                } @else {
+                  <span class="muted">Niet ingesteld</span>
+                }
+              </td>
+              <td class="muted">
+                {{ office.createdAt | date: 'dd/MM/yyyy' }}
+              </td>
+              <td class="actions">
+                <button type="button" (click)="openEdit(office)">Bewerken</button>
+                <button type="button" (click)="openApiKey(office)">
+                  API-sleutel
+                </button>
+                <button
+                  type="button"
+                  class="danger"
+                  (click)="openDelete(office)"
+                >
+                  Verwijderen
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+@if (dialog(); as d) {
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    tabindex="-1"
+    (click)="closeDialog()"
+    (keydown.escape)="closeDialog()"
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="closeDialog()"
+    >
+      @switch (d.kind) {
+        @case ('create') {
+          <h2>Nieuw kantoor</h2>
+          <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+            <label class="field">
+              <span class="label">Naam</span>
+              <input type="text" formControlName="name" />
+            </label>
+            <div class="actions">
+              <button type="button" (click)="closeDialog()">Annuleren</button>
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="createForm.invalid || saving()"
+              >
+                {{ saving() ? 'Bezig…' : 'Aanmaken' }}
+              </button>
+            </div>
+          </form>
+        }
+        @case ('edit') {
+          <h2>Kantoor bewerken — {{ d.office.name }}</h2>
+          <form [formGroup]="editForm" (ngSubmit)="submitEdit()" novalidate>
+            <label class="field">
+              <span class="label">Naam</span>
+              <input type="text" formControlName="name" />
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="isActive" />
+              <span>Actief</span>
+            </label>
+            <div class="actions">
+              <button type="button" (click)="closeDialog()">Annuleren</button>
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="saving()"
+              >
+                {{ saving() ? 'Bezig…' : 'Opslaan' }}
+              </button>
+            </div>
+          </form>
+        }
+        @case ('apiKey') {
+          <h2>API-sleutel — {{ d.office.name }}</h2>
+          @if (d.metadata?.hasKey) {
+            <div class="key-meta">
+              <p><strong>Label:</strong> {{ d.metadata?.label || '—' }}</p>
+              <p>
+                <strong>Laatst gebruikt:</strong>
+                {{
+                  d.metadata?.lastUsedAt
+                    ? (d.metadata?.lastUsedAt | date: 'dd/MM/yyyy HH:mm')
+                    : 'Nog niet gebruikt'
+                }}
+              </p>
+              <p>
+                <strong>Ingesteld op:</strong>
+                {{ d.metadata?.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+              </p>
+            </div>
+            <p class="hint">
+              De sleutelwaarde is niet meer leesbaar. Vervang of
+              verwijder hieronder.
+            </p>
+          } @else {
+            <p class="hint">Dit kantoor heeft nog geen API-sleutel.</p>
+          }
+          <form [formGroup]="apiKeyForm" (ngSubmit)="submitApiKey()" novalidate>
+            <label class="field">
+              <span class="label">Nieuwe sleutel</span>
+              <input type="password" formControlName="key" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span class="label">Label (optioneel)</span>
+              <input type="text" formControlName="label" />
+            </label>
+            <div class="actions">
+              <button type="button" (click)="closeDialog()">Sluiten</button>
+              @if (d.metadata?.hasKey) {
+                <button
+                  type="button"
+                  class="danger"
+                  [disabled]="saving()"
+                  (click)="deleteApiKey()"
+                >
+                  Verwijderen
+                </button>
+              }
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="apiKeyForm.invalid || saving()"
+              >
+                {{ saving() ? 'Bezig…' : 'Opslaan' }}
+              </button>
+            </div>
+          </form>
+        }
+        @case ('delete') {
+          <h2>Kantoor verwijderen</h2>
+          <p>
+            Weet u zeker dat u <strong>{{ d.office.name }}</strong> wilt
+            verwijderen?
+            @if (d.office.userCount > 0) {
+              <br /><span class="hint"
+                >Verplaats eerst de {{ d.office.userCount }} gebruiker(s)
+                naar een ander kantoor.</span
+              >
+            }
+          </p>
+          <div class="actions">
+            <button type="button" (click)="closeDialog()">Annuleren</button>
+            <button
+              type="button"
+              class="danger"
+              [disabled]="saving() || d.office.userCount > 0"
+              (click)="confirmDelete()"
+            >
+              {{ saving() ? 'Bezig…' : 'Definitief verwijderen' }}
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}

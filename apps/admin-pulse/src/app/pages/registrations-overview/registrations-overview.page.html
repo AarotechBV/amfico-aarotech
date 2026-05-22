@@ -40,6 +40,10 @@
 
   <section class="status-card" [attr.data-state]="status()">
     @switch (status()) {
+      @case ('no-office') {
+        <div class="badge badge--empty" aria-hidden="true">?</div>
+        <p class="status-text">{{ statusMessage() }}</p>
+      }
       @case ('loading') {
         <div class="spinner" aria-hidden="true"></div>
         <p class="status-text">{{ statusMessage() }}</p>

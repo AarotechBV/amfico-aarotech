@@ -10,33 +10,36 @@
   <header class="page-head">
     <div>
       <h1>Gebruikers</h1>
-      <p class="lead">Beheer alle gebruikers, hun rol en kantoor.</p>
-    </div>
-    <div class="head-actions">
-      <input
-        class="search"
-        type="search"
-        placeholder="Zoeken op naam of e-mail…"
-        [value]="search()"
-        (input)="onSearch($event)"
-      />
-      <select
-        class="search"
-        [value]="officeFilter()"
-        (change)="onOfficeFilter($event)"
-      >
-        <option value="">Alle kantoren</option>
-        @for (office of offices(); track office.id) {
-          <option [value]="office.id">{{ office.name }}</option>
+      <p class="lead">
+        @if (me.activeOffice(); as office) {
+          Beheer wie toegang heeft tot Admin Pulse voor
+          <strong>{{ office.name }}</strong>.
+        } @else {
+          Kies eerst een kantoor in de header.
         }
-      </select>
-      <button type="button" class="btn-primary" (click)="openCreate()">
-        Nieuwe gebruiker
-      </button>
+      </p>
     </div>
+    @if (hasActiveOffice()) {
+      <div class="head-actions">
+        <input
+          class="search"
+          type="search"
+          placeholder="Zoeken op naam of e-mail…"
+          [value]="search()"
+          (input)="onSearch($event)"
+        />
+        <button type="button" class="btn-primary" (click)="openCreate()">
+          Nieuwe gebruiker
+        </button>
+      </div>
+    }
   </header>
 
-  @if (isLoading()) {
+  @if (!hasActiveOffice()) {
+    <div class="card status">
+      <p>Selecteer een kantoor om gebruikers te beheren.</p>
+    </div>
+  } @else if (isLoading()) {
     <div class="card status">
       <div class="spinner" aria-hidden="true"></div>
       <p>Gebruikers laden…</p>
@@ -53,7 +56,6 @@
             <th>Naam</th>
             <th>E-mail</th>
             <th>Rol</th>
-            <th>Kantoor</th>
             <th>Status</th>
             <th>Laatste login</th>
             <th class="actions">Acties</th>
@@ -65,25 +67,10 @@
               <td>{{ user.fullName || '—' }}</td>
               <td>{{ user.email }}</td>
               <td>
-                <span
-                  class="badge"
-                  [class.badge--admin]="user.role === 'admin'"
-                  [class.badge--super]="user.role === 'super_admin'"
-                >
-                  @switch (user.role) {
-                    @case ('super_admin') {
-                      Super admin
-                    }
-                    @case ('admin') {
-                      Admin
-                    }
-                    @default {
-                      Gebruiker
-                    }
-                  }
+                <span class="badge" [class.badge--admin]="user.role === 'admin'">
+                  {{ user.role === 'admin' ? 'Admin' : 'Gebruiker' }}
                 </span>
               </td>
-              <td>{{ user.officeName || '—' }}</td>
               <td>
                 @if (user.isActive) {
                   <span class="dot dot--ok"></span>Actief
@@ -152,20 +139,8 @@
               <select formControlName="role">
                 <option value="user">Gebruiker</option>
                 <option value="admin">Admin</option>
-                <option value="super_admin">Super admin</option>
               </select>
             </label>
-            @if (createForm.controls.role.value !== 'super_admin') {
-              <label class="field">
-                <span class="label">Kantoor</span>
-                <select formControlName="officeId">
-                  <option value="" disabled>— kies een kantoor —</option>
-                  @for (office of offices(); track office.id) {
-                    <option [value]="office.id">{{ office.name }}</option>
-                  }
-                </select>
-              </label>
-            }
             <p class="hint">
               Het wachtwoord wordt automatisch gegenereerd en eenmalig
               getoond.
@@ -194,27 +169,19 @@
               <select formControlName="role">
                 <option value="user">Gebruiker</option>
                 <option value="admin">Admin</option>
-                <option value="super_admin">Super admin</option>
               </select>
             </label>
-            @if (editForm.controls.role.value !== 'super_admin') {
-              <label class="field">
-                <span class="label">Kantoor</span>
-                <select formControlName="officeId">
-                  <option value="" disabled>— kies een kantoor —</option>
-                  @for (office of offices(); track office.id) {
-                    <option [value]="office.id">{{ office.name }}</option>
-                  }
-                </select>
-              </label>
-            }
             <label class="checkbox">
               <input type="checkbox" formControlName="isActive" />
               <span>Actief</span>
             </label>
             <div class="actions">
               <button type="button" (click)="closeDialog()">Annuleren</button>
-              <button type="submit" class="btn-primary" [disabled]="saving()">
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="saving()"
+              >
                 {{ saving() ? 'Bezig…' : 'Opslaan' }}
               </button>
             </div>

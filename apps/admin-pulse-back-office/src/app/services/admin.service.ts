@@ -1,20 +1,21 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 
-export type AppRole = 'user' | 'admin';
+export type AppRole = 'user' | 'admin' | 'super_admin';
+
+// ---------- Users ----------
 
 export interface UserSummary {
   id: string;
   email: string;
   fullName: string | null;
   role: AppRole;
+  officeId: string | null;
+  officeName: string | null;
   isActive: boolean;
-  hasApiKey: boolean;
-  apiKeyLabel: string | null;
   lastSignInAt: string | null;
-  apiKeyLastUsedAt: string | null;
   createdAt: string;
 }
 
@@ -22,12 +23,14 @@ export interface CreateUserRequest {
   email: string;
   fullName?: string;
   password?: string;
-  role?: AppRole;
+  role: AppRole;
+  officeId?: string;
 }
 
 export interface UpdateUserRequest {
   fullName?: string;
   role?: AppRole;
+  officeId?: string | null;
   isActive?: boolean;
 }
 
@@ -36,7 +39,31 @@ export interface CredentialPayload {
   password: string;
 }
 
-export interface ApiKeyMetadata {
+// ---------- Offices ----------
+
+export interface OfficeSummary {
+  id: string;
+  name: string;
+  isActive: boolean;
+  userCount: number;
+  hasApiKey: boolean;
+  apiKeyLabel: string | null;
+  apiKeyLastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateOfficeRequest {
+  name: string;
+}
+
+export interface UpdateOfficeRequest {
+  name?: string;
+  isActive?: boolean;
+}
+
+// ---------- API key ----------
+
+export interface OfficeApiKeyMetadata {
   hasKey: boolean;
   label: string | null;
   lastUsedAt: string | null;
@@ -44,7 +71,7 @@ export interface ApiKeyMetadata {
   updatedAt: string | null;
 }
 
-export interface SetApiKeyRequest {
+export interface SetOfficeApiKeyRequest {
   key: string;
   label?: string;
 }
@@ -54,8 +81,15 @@ export class AdminService {
   readonly #http = inject(HttpClient);
   readonly #base = inject(API_BASE_URL);
 
-  listUsers(): Observable<UserSummary[]> {
-    return this.#http.get<UserSummary[]>(`${this.#base}/admin/users`);
+  // ---- Users (cross-office) ----
+
+  listUsers(officeId?: string): Observable<UserSummary[]> {
+    const params = officeId
+      ? new HttpParams().set('officeId', officeId)
+      : undefined;
+    return this.#http.get<UserSummary[]>(`${this.#base}/admin/users`, {
+      params,
+    });
   }
 
   createUser(body: CreateUserRequest): Observable<CredentialPayload> {
@@ -69,13 +103,10 @@ export class AdminService {
     return this.#http.patch<void>(`${this.#base}/admin/users/${id}`, body);
   }
 
-  resetPassword(
-    id: string,
-    password?: string,
-  ): Observable<CredentialPayload> {
+  resetPassword(id: string): Observable<CredentialPayload> {
     return this.#http.post<CredentialPayload>(
       `${this.#base}/admin/users/${id}/reset-password`,
-      password ? { password } : {},
+      {},
     );
   }
 
@@ -83,25 +114,51 @@ export class AdminService {
     return this.#http.delete<void>(`${this.#base}/admin/users/${id}`);
   }
 
-  getApiKey(userId: string): Observable<ApiKeyMetadata> {
-    return this.#http.get<ApiKeyMetadata>(
-      `${this.#base}/admin/users/${userId}/api-key`,
+  // ---- Offices ----
+
+  listOffices(): Observable<OfficeSummary[]> {
+    return this.#http.get<OfficeSummary[]>(`${this.#base}/admin/offices`);
+  }
+
+  createOffice(body: CreateOfficeRequest): Observable<OfficeSummary> {
+    return this.#http.post<OfficeSummary>(`${this.#base}/admin/offices`, body);
+  }
+
+  updateOffice(id: string, body: UpdateOfficeRequest): Observable<void> {
+    return this.#http.patch<void>(`${this.#base}/admin/offices/${id}`, body);
+  }
+
+  deleteOffice(id: string): Observable<void> {
+    return this.#http.delete<void>(`${this.#base}/admin/offices/${id}`);
+  }
+
+  // ---- Office API key (super_admin uses X-Active-Office header to scope) ----
+
+  getOfficeApiKey(officeId: string): Observable<OfficeApiKeyMetadata> {
+    return this.#http.get<OfficeApiKeyMetadata>(
+      `${this.#base}/office/api-key`,
+      { headers: this.#officeHeader(officeId) },
     );
   }
 
-  setApiKey(
-    userId: string,
-    body: SetApiKeyRequest,
-  ): Observable<ApiKeyMetadata> {
-    return this.#http.put<ApiKeyMetadata>(
-      `${this.#base}/admin/users/${userId}/api-key`,
+  setOfficeApiKey(
+    officeId: string,
+    body: SetOfficeApiKeyRequest,
+  ): Observable<OfficeApiKeyMetadata> {
+    return this.#http.put<OfficeApiKeyMetadata>(
+      `${this.#base}/office/api-key`,
       body,
+      { headers: this.#officeHeader(officeId) },
     );
   }
 
-  deleteApiKey(userId: string): Observable<void> {
-    return this.#http.delete<void>(
-      `${this.#base}/admin/users/${userId}/api-key`,
-    );
+  deleteOfficeApiKey(officeId: string): Observable<void> {
+    return this.#http.delete<void>(`${this.#base}/office/api-key`, {
+      headers: this.#officeHeader(officeId),
+    });
+  }
+
+  #officeHeader(officeId: string): HttpHeaders {
+    return new HttpHeaders({ 'X-Active-Office': officeId });
   }
 }

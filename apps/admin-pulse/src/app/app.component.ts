@@ -24,7 +24,7 @@ import { AppHeaderComponent } from './components/app-header/app-header.component
   template: `
     @if (showChrome()) {
       <ap-app-header />
-      <div class="shell" [class.shell--with-sidebar]="showRapportenSidebar()">
+      <div class="shell" [class.shell--with-sidebar]="showSidebar()">
         @if (showRapportenSidebar()) {
           <aside class="sidebar" aria-label="Rapporten">
             <p class="sidebar-heading">Rapporten</p>
@@ -35,6 +35,27 @@ import { AppHeaderComponent } from './components/app-header/app-header.component
                 [routerLinkActiveOptions]="{ exact: true }"
               >
                 Registraties
+              </a>
+            </nav>
+          </aside>
+        }
+        @if (showKantoorSidebar()) {
+          <aside class="sidebar" aria-label="Kantoor">
+            <p class="sidebar-heading">Kantoor</p>
+            <nav>
+              <a
+                routerLink="/kantoor/gebruikers"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                Gebruikers
+              </a>
+              <a
+                routerLink="/kantoor/api-sleutel"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                API-sleutel
               </a>
             </nav>
           </aside>
@@ -165,6 +186,14 @@ export class AppComponent {
 
   showRapportenSidebar = computed(
     () => this.showChrome() && this.#currentUrl().startsWith('/rapporten'),
+  );
+
+  showKantoorSidebar = computed(
+    () => this.showChrome() && this.#currentUrl().startsWith('/kantoor'),
+  );
+
+  showSidebar = computed(
+    () => this.showRapportenSidebar() || this.showKantoorSidebar(),
   );
 
   redirectOnSessionChange = effect(() => {

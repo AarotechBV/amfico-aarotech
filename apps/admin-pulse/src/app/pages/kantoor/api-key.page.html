@@ -1,0 +1,109 @@
+@if (errorMessage(); as msg) {
+  <div class="errors" role="alert">
+    <strong>Er ging iets mis</strong>
+    <p>{{ msg }}</p>
+    <button type="button" (click)="clearError()">Sluiten</button>
+  </div>
+}
+
+<section class="page">
+  <header class="page-head">
+    <div>
+      <h1>API-sleutel</h1>
+      <p class="lead">
+        @if (me.activeOffice(); as office) {
+          De AdminPulse API-sleutel die <strong>{{ office.name }}</strong>
+          gebruikt voor alle upstream-oproepen.
+        } @else {
+          Kies eerst een kantoor in de header.
+        }
+      </p>
+    </div>
+  </header>
+
+  @if (!hasActiveOffice()) {
+    <div class="card status">
+      <p>Selecteer een kantoor om de sleutel te beheren.</p>
+    </div>
+  } @else if (isLoading()) {
+    <div class="card status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>API-sleutel laden…</p>
+    </div>
+  } @else {
+    <div class="card" style="padding: 24px">
+      @if (metadata()?.hasKey) {
+        <div class="key-meta">
+          <p><strong>Status:</strong> Ingesteld</p>
+          <p><strong>Label:</strong> {{ metadata()?.label || '—' }}</p>
+          <p>
+            <strong>Laatst gebruikt:</strong>
+            {{
+              metadata()?.lastUsedAt
+                ? (metadata()?.lastUsedAt | date: 'dd/MM/yyyy HH:mm')
+                : 'Nog niet gebruikt'
+            }}
+          </p>
+          <p>
+            <strong>Ingesteld op:</strong>
+            {{ metadata()?.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+          </p>
+        </div>
+        <p class="hint">
+          De sleutelwaarde is niet meer leesbaar. Vervang of verwijder
+          hieronder indien nodig.
+        </p>
+      } @else {
+        <p class="hint">Er is nog geen API-sleutel ingesteld voor dit kantoor.</p>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <label class="field">
+          <span class="label">Nieuwe sleutel</span>
+          <input type="password" formControlName="key" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="label">Label (optioneel)</span>
+          <input type="text" formControlName="label" />
+        </label>
+        <div class="actions">
+          @if (metadata()?.hasKey && !showConfirmDelete()) {
+            <button
+              type="button"
+              class="danger"
+              [disabled]="saving()"
+              (click)="showConfirmDelete.set(true)"
+            >
+              Verwijderen
+            </button>
+          }
+          @if (showConfirmDelete()) {
+            <button
+              type="button"
+              [disabled]="saving()"
+              (click)="showConfirmDelete.set(false)"
+            >
+              Annuleren
+            </button>
+            <button
+              type="button"
+              class="danger"
+              [disabled]="saving()"
+              (click)="confirmDelete()"
+            >
+              {{ saving() ? 'Bezig…' : 'Definitief verwijderen' }}
+            </button>
+          } @else {
+            <button
+              type="submit"
+              class="btn-primary"
+              [disabled]="form.invalid || saving()"
+            >
+              {{ saving() ? 'Bezig…' : metadata()?.hasKey ? 'Vervangen' : 'Opslaan' }}
+            </button>
+          }
+        </div>
+      </form>
+    </div>
+  }
+</section>

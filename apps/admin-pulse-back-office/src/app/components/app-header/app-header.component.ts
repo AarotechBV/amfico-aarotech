@@ -15,11 +15,18 @@ import { AuthService } from '../../services/auth.service';
     <div class="ribbon" aria-hidden="true"></div>
     <div class="bar">
       <div class="left">
-        <a routerLink="/gebruikers" class="brand">
+        <a routerLink="/kantoren" class="brand">
           <span class="brand-wordmark">amfico</span>
           <span class="brand-suffix">Admin Pulse — Back Office</span>
         </a>
         <nav class="primary-nav" aria-label="Hoofdmenu">
+          <a
+            routerLink="/kantoren"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: false }"
+          >
+            Kantoren
+          </a>
           <a
             routerLink="/gebruikers"
             routerLinkActive="active"

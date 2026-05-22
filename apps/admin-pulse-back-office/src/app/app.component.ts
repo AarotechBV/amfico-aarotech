@@ -4,16 +4,22 @@ import {
   computed,
   effect,
   inject,
+  signal,
+  untracked,
 } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
-import { AuthService } from './services/auth.service';
 import { AppHeaderComponent } from './components/app-header/app-header.component';
+import { AuthService } from './services/auth.service';
+import { MeService } from './services/me.service';
 
 @Component({
   selector: 'ap-root',
   imports: [RouterOutlet, AppHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (rejectedReason(); as reason) {
+      <div class="reject" role="alert">{{ reason }}</div>
+    }
     @if (showChrome()) {
       <ap-app-header />
     }
@@ -31,22 +37,58 @@ import { AppHeaderComponent } from './components/app-header/app-header.component
       flex: 1;
       background: var(--color-bg-soft);
     }
+    .reject {
+      background: var(--color-danger);
+      color: #fff;
+      padding: var(--space-3) var(--space-4);
+      text-align: center;
+      font-weight: var(--fw-semibold);
+    }
   `,
 })
 export class AppComponent {
   readonly #auth = inject(AuthService);
+  readonly #me = inject(MeService);
   readonly #router = inject(Router);
 
-  showChrome = computed(() => !!this.#auth.accessToken());
+  rejectedReason = signal<string | null>(null);
 
-  redirectOnSessionChange = effect(() => {
+  showChrome = computed(
+    () => !!this.#auth.accessToken() && this.#me.role() === 'super_admin',
+  );
+
+  /**
+   * Routing + role gate combined:
+   *  - No session → /login
+   *  - Session + me not loaded yet → wait
+   *  - Session + role !== super_admin → sign out + show "access denied"
+   *  - Session + super_admin + on /login → /kantoren
+   */
+  enforceAccess = effect(() => {
     if (!this.#auth.initialised()) return;
     const hasSession = !!this.#auth.accessToken();
     const onLogin = this.#router.url.startsWith('/login');
-    if (hasSession && onLogin) {
-      this.#router.navigateByUrl('/gebruikers');
-    } else if (!hasSession && !onLogin) {
-      this.#router.navigateByUrl('/login');
-    }
+    const me = this.#me.me();
+
+    untracked(() => {
+      if (!hasSession) {
+        if (!onLogin) this.#router.navigateByUrl('/login');
+        return;
+      }
+      if (!me) return; // /api/auth/me still loading
+
+      if (me.role !== 'super_admin') {
+        this.rejectedReason.set(
+          'Geen toegang tot de back office. Enkel super admins.',
+        );
+        this.#auth.signOut().subscribe(() => {
+          setTimeout(() => this.rejectedReason.set(null), 4000);
+        });
+        return;
+      }
+
+      this.rejectedReason.set(null);
+      if (onLogin) this.#router.navigateByUrl('/kantoren');
+    });
   });
 }

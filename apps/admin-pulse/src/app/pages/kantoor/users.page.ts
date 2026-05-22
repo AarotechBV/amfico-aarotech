@@ -14,54 +14,51 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { forkJoin } from 'rxjs';
 import {
-  AdminService,
-  AppRole,
   CredentialPayload,
-  OfficeSummary,
-  UserSummary,
-} from '../../services/admin.service';
+  OfficeAdminService,
+  OfficeUserSummary,
+} from '../../services/office-admin.service';
+import { MeService } from '../../services/me.service';
 
 type Dialog =
   | { kind: 'create' }
-  | { kind: 'edit'; user: UserSummary }
-  | { kind: 'reset'; user: UserSummary }
-  | { kind: 'delete'; user: UserSummary }
+  | { kind: 'edit'; user: OfficeUserSummary }
+  | { kind: 'reset'; user: OfficeUserSummary }
+  | { kind: 'delete'; user: OfficeUserSummary }
   | { kind: 'credential'; email: string; credential: CredentialPayload }
   | null;
 
 @Component({
-  selector: 'ap-users',
+  selector: 'ap-kantoor-users',
   imports: [DatePipe, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './users.page.html',
-  styleUrl: './users.page.scss',
+  styleUrl: './kantoor.scss',
 })
-export class UsersPage {
-  readonly #admin = inject(AdminService);
+export class KantoorUsersPage {
+  readonly #admin = inject(OfficeAdminService);
+  readonly me = inject(MeService);
 
-  users = signal<UserSummary[]>([]);
-  offices = signal<OfficeSummary[]>([]);
-  search = signal('');
-  officeFilter = signal<string>('');
+  users = signal<OfficeUserSummary[]>([]);
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
   dialog = signal<Dialog>(null);
   saving = signal(false);
 
+  search = signal('');
   filteredUsers = computed(() => {
     const term = this.search().toLowerCase().trim();
-    const office = this.officeFilter();
-    return this.users().filter((u) => {
-      if (office && (u.officeId ?? '') !== office) return false;
-      if (!term) return true;
-      return (
+    const all = this.users();
+    if (!term) return all;
+    return all.filter(
+      (u) =>
         u.email.toLowerCase().includes(term) ||
-        (u.fullName ?? '').toLowerCase().includes(term)
-      );
-    });
+        (u.fullName ?? '').toLowerCase().includes(term),
+    );
   });
+
+  hasActiveOffice = computed(() => !!this.me.activeOfficeId());
 
   createForm = new FormGroup({
     email: new FormControl('', {
@@ -69,95 +66,67 @@ export class UsersPage {
       validators: [Validators.required],
     }),
     fullName: new FormControl('', { nonNullable: true }),
-    role: new FormControl<AppRole>('user', { nonNullable: true }),
-    officeId: new FormControl<string>('', { nonNullable: true }),
+    role: new FormControl<'user' | 'admin'>('user', { nonNullable: true }),
   });
 
   editForm = new FormGroup({
     fullName: new FormControl('', { nonNullable: true }),
-    role: new FormControl<AppRole>('user', { nonNullable: true }),
-    officeId: new FormControl<string>('', { nonNullable: true }),
+    role: new FormControl<'user' | 'admin'>('user', { nonNullable: true }),
     isActive: new FormControl(true, { nonNullable: true }),
   });
 
-  /** Office requirement is dynamic on role */
-  syncCreateOfficeRequirement = effect(() => {
-    const role = this.createForm.controls.role.value;
-    untracked(() => {
-      const ctrl = this.createForm.controls.officeId;
-      if (role === 'super_admin') {
-        ctrl.setValue('');
-        ctrl.clearValidators();
-      } else {
-        ctrl.setValidators(Validators.required);
-      }
-      ctrl.updateValueAndValidity({ emitEvent: false });
-    });
-  });
-
-  constructor() {
-    this.refresh();
-  }
-
-  refresh() {
+  refresh = () => {
+    if (!this.me.activeOfficeId()) {
+      this.users.set([]);
+      return;
+    }
     this.isLoading.set(true);
     this.errorMessage.set(null);
-    forkJoin({
-      users: this.#admin.listUsers(),
-      offices: this.#admin.listOffices(),
-    }).subscribe({
-      next: ({ users, offices }) => {
+    this.#admin.listUsers().subscribe({
+      next: (users) => {
         this.users.set(users);
-        this.offices.set(offices);
         this.isLoading.set(false);
       },
       error: (err) => {
         this.isLoading.set(false);
         this.errorMessage.set(
-          err?.error?.message ?? 'Kon gegevens niet laden.',
+          err?.error?.message ?? 'Kon gebruikers niet laden.',
         );
       },
     });
-  }
+  };
 
-  officeName(officeId: string | null): string {
-    if (!officeId) return '—';
-    return this.offices().find((o) => o.id === officeId)?.name ?? officeId;
-  }
+  reloadOnActiveOffice = effect(() => {
+    const officeId = this.me.activeOfficeId();
+    untracked(() => {
+      if (officeId) this.refresh();
+      else this.users.set([]);
+    });
+  });
 
-  onSearch(event: Event) {
-    this.search.set((event.target as HTMLInputElement).value);
-  }
-
-  onOfficeFilter(event: Event) {
-    this.officeFilter.set((event.target as HTMLSelectElement).value);
+  onSearch(e: Event) {
+    this.search.set((e.target as HTMLInputElement).value);
   }
 
   openCreate() {
-    this.createForm.reset({
-      email: '',
-      fullName: '',
-      role: 'user',
-      officeId: '',
-    });
+    this.createForm.reset({ email: '', fullName: '', role: 'user' });
     this.dialog.set({ kind: 'create' });
   }
 
-  openEdit(user: UserSummary) {
+  openEdit(user: OfficeUserSummary) {
     this.editForm.reset({
       fullName: user.fullName ?? '',
-      role: user.role,
-      officeId: user.officeId ?? '',
+      role: user.role === 'super_admin' ? 'admin' : user.role,
       isActive: user.isActive,
     });
     this.dialog.set({ kind: 'edit', user });
   }
 
-  openReset(user: UserSummary) {
+  openReset(user: OfficeUserSummary) {
     this.dialog.set({ kind: 'reset', user });
   }
 
-  openDelete(user: UserSummary) {
+  openDelete(user: OfficeUserSummary) {
     this.dialog.set({ kind: 'delete', user });
   }
 
@@ -167,14 +136,13 @@ export class UsersPage {
 
   submitCreate() {
     if (this.createForm.invalid) return;
-    const { email, fullName, role, officeId } = this.createForm.getRawValue();
+    const { email, fullName, role } = this.createForm.getRawValue();
     this.saving.set(true);
     this.#admin
       .createUser({
         email,
         fullName: fullName || undefined,
         role,
-        officeId: role === 'super_admin' ? undefined : officeId,
       })
       .subscribe({
         next: (credential) => {
@@ -197,26 +165,19 @@ export class UsersPage {
     if (this.editForm.invalid) return;
     const body = this.editForm.getRawValue();
     this.saving.set(true);
-    this.#admin
-      .updateUser(d.user.id, {
-        fullName: body.fullName,
-        role: body.role,
-        officeId: body.role === 'super_admin' ? null : body.officeId || null,
-        isActive: body.isActive,
-      })
-      .subscribe({
-        next: () => {
-          this.saving.set(false);
-          this.refresh();
-          this.dialog.set(null);
-        },
-        error: (err) => {
-          this.saving.set(false);
-          this.errorMessage.set(
-            err?.error?.message ?? 'Wijzigingen niet opgeslagen.',
-          );
-        },
-      });
+    this.#admin.updateUser(d.user.id, body).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.refresh();
+        this.dialog.set(null);
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.errorMessage.set(
+          err?.error?.message ?? 'Wijzigingen niet opgeslagen.',
+        );
+      },
+    });
   }
 
   submitReset() {

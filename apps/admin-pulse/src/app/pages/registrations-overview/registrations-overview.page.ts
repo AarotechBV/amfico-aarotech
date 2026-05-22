@@ -13,6 +13,7 @@ import type { TCreatedPdf } from 'pdfmake/interfaces';
 import { endOfLastMonth } from '../../utils/end-of-last-month.util';
 import { RegistrationsPdfService } from '../../services/registrations-pdf.service';
 import { CompaniesService } from '../../services/companies.service';
+import { MeService } from '../../services/me.service';
 import {
   OverviewService,
   RegistrationsOverviewResponse,
@@ -29,6 +30,7 @@ export class RegistrationsOverviewPage {
   readonly #companiesService = inject(CompaniesService);
   readonly #overview = inject(OverviewService);
   readonly #pdfService = inject(RegistrationsPdfService);
+  readonly me = inject(MeService);
 
   registrationDateUntil = signal<Date | null>(endOfLastMonth());
   invoiced = signal(false);
@@ -42,7 +44,8 @@ export class RegistrationsOverviewPage {
   isLoadingOverview = signal(false);
   errors = signal<string[]>([]);
 
-  status = computed<'loading' | 'empty' | 'ready'>(() => {
+  status = computed<'no-office' | 'loading' | 'empty' | 'ready'>(() => {
+    if (!this.me.activeOfficeId()) return 'no-office';
     if (this.isLoadingCompanies() || this.isLoadingOverview() || !this.pdf()) {
       return 'loading';
     }
@@ -51,6 +54,9 @@ export class RegistrationsOverviewPage {
   });
 
   statusMessage = computed(() => {
+    if (!this.me.activeOfficeId()) {
+      return 'Kies een kantoor in de header om verder te gaan.';
+    }
     if (this.isLoadingCompanies()) return 'Bedrijven ophalen…';
     if (this.isLoadingOverview()) return 'Registraties ophalen…';
     if (!this.pdf()) return 'PDF aan het opbouwen…';
@@ -60,9 +66,24 @@ export class RegistrationsOverviewPage {
     return 'PDF is klaar om te downloaden.';
   });
 
-  constructor() {
-    this.#loadCompanies();
-  }
+  /**
+   * Reload companies whenever the active office changes (super_admin
+   * switching, or initial me-load). Skips when there's no active office
+   * — the backend would 400 because /companies needs an office key.
+   */
+  reloadOnActiveOffice = effect(() => {
+    const officeId = this.me.activeOfficeId();
+    untracked(() => {
+      if (!officeId) {
+        this.companies.set([]);
+        this.response.set(null);
+        this.pdf.set(null);
+        this.selectedCompanyId.set(null);
+        return;
+      }
+      this.#loadCompanies();
+    });
+  });
 
   selectFirstCompany = effect(() => {
     const companies = this.companies();
